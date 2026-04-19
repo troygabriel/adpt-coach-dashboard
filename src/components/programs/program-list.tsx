@@ -49,6 +49,16 @@ export function ProgramList({ programs, clients, coachId }: {
       .single();
 
     if (!error && data) {
+      // Auto-create Phase 1
+      await supabase.from("program_phases").insert({
+        program_id: data.id,
+        name: "Phase 1",
+        phase_number: 1,
+        duration_weeks: 4,
+        goal: "hypertrophy",
+        status: "upcoming",
+      });
+
       setDialogOpen(false);
       setName("");
       setClientId("");
