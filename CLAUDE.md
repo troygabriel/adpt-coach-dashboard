@@ -58,13 +58,14 @@ src/app/
 
 ## Design System
 
-Matches the ADPT mobile app. Dark mode only.
-- Primary: `#00C9B7` (teal/cyan)
-- Background: `#0A0A0A`
-- Card: `#1C1C1C`
-- Accent: `#FF6B35` (orange, for urgency)
-- Success: `#7FA07F` (sage green)
-- Gold: `#FFD700` (achievements)
+Matches the ADPT mobile app. Light mode, black-and-white, minimal.
+- Primary: `#000000` (black CTAs, active states)
+- Background: `#FFFFFF`
+- Card: `#FFFFFF` (with subtle border)
+- Sidebar: `#F9FAFB` (light gray)
+- Text: `#000000`
+- Muted: `#9CA3AF`
+- No color accents except functional (success green, error red)
 
 ## Environment Variables
 
