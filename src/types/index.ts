@@ -222,6 +222,51 @@ export interface HabitWithLogs extends HabitAssignment {
   habit_logs: HabitLog[];
 }
 
+// Client invitation
+export interface ClientInvitation {
+  id: string;
+  coach_id: string;
+  email: string;
+  status: "pending" | "accepted" | "expired";
+  token: string;
+  created_at: string;
+  expires_at: string;
+}
+
+// Conversation
+export interface Conversation {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  last_message_at: string | null;
+  created_at: string;
+}
+
+// Progress photo (direct upload, not tied to check-in)
+export interface ProgressPhoto {
+  id: string;
+  client_id: string;
+  storage_path: string;
+  thumbnail_url: string | null;
+  pose: "front" | "side" | "back" | "other" | null;
+  notes: string | null;
+  taken_at: string;
+  created_at: string;
+}
+
+// Client macro targets
+export interface ClientMacros {
+  id: string;
+  client_id: string;
+  coach_id: string;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  effective_from: string;
+  notes: string | null;
+}
+
 // Navigation
 export type NavItem = {
   title: string;
