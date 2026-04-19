@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ProgramList } from "@/components/programs/program-list";
 
+export const dynamic = "force-dynamic";
 export default async function ProgramsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

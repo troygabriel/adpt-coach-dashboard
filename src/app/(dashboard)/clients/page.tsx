@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ClientTable } from "@/components/clients/client-table";
 import type { ClientWithProfile } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function ClientsPage() {
   const supabase = await createClient();
 

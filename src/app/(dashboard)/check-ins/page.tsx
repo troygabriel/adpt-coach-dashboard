@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CheckInQueue } from "@/components/check-ins/check-in-queue";
 import type { CheckInWithClient } from "@/types";
 
+export const dynamic = "force-dynamic";
 export default async function CheckInsPage() {
   const supabase = await createClient();
 
