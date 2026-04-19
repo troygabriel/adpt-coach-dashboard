@@ -13,12 +13,40 @@ export async function POST(request: Request) {
   // Verify caller is a coach
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, first_name")
     .eq("id", coach.id)
     .single();
 
   if (profile?.role !== "coach" && profile?.role !== "admin") {
     return NextResponse.json({ error: "Not a coach" }, { status: 403 });
+  }
+
+  // Use admin client for all DB operations (bypasses RLS)
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  // Ensure coach has a row in coaches table (FK requirement)
+  const { data: coachRow } = await admin
+    .from("coaches")
+    .select("id")
+    .eq("id", coach.id)
+    .maybeSingle();
+
+  if (!coachRow) {
+    // Auto-create the coaches row
+    const { error: coachCreateError } = await admin.from("coaches").insert({
+      id: coach.id,
+      display_name: profile?.first_name || coach.email || "Coach",
+      is_accepting_clients: true,
+    });
+
+    if (coachCreateError) {
+      return NextResponse.json({
+        error: `Failed to initialize coach profile: ${coachCreateError.message}`,
+      }, { status: 500 });
+    }
   }
 
   const body = await request.json();
@@ -28,18 +56,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  // Use admin client to create user (service role can create auth users)
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-
   // Check if user already exists
   const { data: existing } = await admin.rpc("get_user_id_by_email", { p_email: email });
 
   if (existing) {
-    // User exists — just create the relationship
-    const { error } = await supabase.from("coach_clients").insert({
+    // User exists — create the relationship using admin client
+    const { error } = await admin.from("coach_clients").insert({
       coach_id: coach.id,
       client_id: existing,
       status: "active",
@@ -79,12 +101,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 
-  // Update profile with name
+  // Update profile with name (handle_new_user trigger creates the row, we update it)
   if (full_name) {
     await admin.from("profiles").update({ first_name: full_name }).eq("id", newUser.user.id);
   }
 
-  // Create coach-client relationship
+  // Create coach-client relationship using admin client (bypasses RLS)
   const { error: linkError } = await admin.from("coach_clients").insert({
     coach_id: coach.id,
     client_id: newUser.user.id,
@@ -95,7 +117,7 @@ export async function POST(request: Request) {
   });
 
   if (linkError) {
-    return NextResponse.json({ error: linkError.message }, { status: 500 });
+    return NextResponse.json({ error: `Failed to link client: ${linkError.message}` }, { status: 500 });
   }
 
   return NextResponse.json({

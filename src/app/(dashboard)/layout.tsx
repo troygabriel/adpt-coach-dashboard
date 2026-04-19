@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   // Check role
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, first_name")
     .eq("id", user.id)
     .single();
 
@@ -29,7 +29,7 @@ export default async function DashboardLayout({
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+          <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
             This dashboard is for coaches only. Please use the ADPT mobile app.
           </p>
@@ -38,12 +38,29 @@ export default async function DashboardLayout({
     );
   }
 
-  // Get coach profile
-  const { data: coach } = await supabase
+  // Get or create coach profile
+  let { data: coach } = await supabase
     .from("coaches")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (!coach) {
+    // Auto-create coaches row (trigger may have failed or user was set to coach manually)
+    await supabase.from("coaches").insert({
+      id: user.id,
+      display_name: profile.first_name || user.email || "Coach",
+      is_accepting_clients: true,
+    });
+
+    const { data: created } = await supabase
+      .from("coaches")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    coach = created;
+  }
 
   return <DashboardShell coach={coach as Coach | null}>{children}</DashboardShell>;
 }
