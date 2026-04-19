@@ -14,23 +14,32 @@ export default async function ClientsPage() {
 
   if (!user) redirect("/sign-in");
 
-  const { data: clients } = await supabase
+  // Fetch coach_clients, then fetch profiles separately (no direct FK to profiles)
+  const { data: coachClients } = await supabase
     .from("coach_clients")
-    .select(`
-      *,
-      profiles:client_id (
-        id,
-        first_name,
-        goal
-      )
-    `)
+    .select("*")
     .eq("coach_id", user.id)
     .order("created_at", { ascending: false });
+
+  // Fetch profiles for all client IDs
+  const clientIds = (coachClients ?? []).map((c) => c.client_id);
+  const { data: profileRows } = clientIds.length > 0
+    ? await supabase
+        .from("profiles")
+        .select("id, first_name, goal")
+        .in("id", clientIds)
+    : { data: [] };
+
+  const profileMap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+  const clients = (coachClients ?? []).map((c) => ({
+    ...c,
+    profiles: profileMap.get(c.client_id) || { id: c.client_id, first_name: null, goal: null },
+  }));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Clients</h1>
+        <h1 className="text-2xl font-bold">Clients</h1>
         <p className="text-muted-foreground">Manage your coaching clients.</p>
       </div>
 

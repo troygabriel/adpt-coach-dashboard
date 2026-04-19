@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { ProgramBuilder } from "@/components/programs/program-builder";
 
 export const dynamic = "force-dynamic";
+
 export default async function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -13,7 +14,6 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     .from("coaching_programs")
     .select(`
       id, coach_id, client_id, name, description, status, start_date, end_date,
-      profiles:client_id (id, first_name),
       program_phases (
         id, name, description, phase_number, duration_weeks, goal, status,
         phase_workouts (id, day_number, name, exercises, duration_minutes, notes)
@@ -25,5 +25,12 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
 
   if (!program) notFound();
 
-  return <ProgramBuilder program={program as any} />;
+  // Fetch client profile separately
+  const { data: clientProfile } = await supabase
+    .from("profiles")
+    .select("id, first_name")
+    .eq("id", program.client_id)
+    .single();
+
+  return <ProgramBuilder program={{ ...program, profiles: clientProfile } as any} />;
 }

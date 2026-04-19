@@ -4,6 +4,7 @@ import { CheckInQueue } from "@/components/check-ins/check-in-queue";
 import type { CheckInWithClient } from "@/types";
 
 export const dynamic = "force-dynamic";
+
 export default async function CheckInsPage() {
   const supabase = await createClient();
 
@@ -13,60 +14,57 @@ export default async function CheckInsPage() {
 
   if (!user) redirect("/sign-in");
 
-  // Fetch check-ins with client profiles and photos
+  // Fetch check-ins (no FK join to profiles — do it separately)
   const { data: checkIns } = await supabase
     .from("check_ins")
-    .select(`
-      *,
-      profiles:client_id (
-        id,
-        first_name,
-        goal
-      ),
-      check_in_photos (*),
-      coach_clients!inner (
-        status,
-        monthly_rate_cents
-      )
-    `)
+    .select("*, check_in_photos (*)")
     .eq("coach_id", user.id)
     .order("submitted_at", { ascending: false });
 
-  // Fetch body stats for trend data (last 12 weeks per client)
+  // Fetch profiles for all client IDs in check-ins
+  const clientIds = [...new Set((checkIns ?? []).map((c: any) => c.client_id))];
+  const { data: profileRows } = clientIds.length > 0
+    ? await supabase.from("profiles").select("id, first_name, goal").in("id", clientIds)
+    : { data: [] };
+
+  const profileMap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+
+  const checkInsWithProfiles = (checkIns ?? []).map((c: any) => ({
+    ...c,
+    profiles: profileMap.get(c.client_id) || { id: c.client_id, first_name: null, goal: null },
+  }));
+
+  // Fetch body stats for trend data
   const { data: bodyStats } = await supabase
     .from("body_stats")
     .select("*")
     .order("date", { ascending: true });
 
-  // Fetch coach notes for all clients
+  // Fetch coach notes
   const { data: coachNotes } = await supabase
     .from("coach_notes")
     .select("*")
     .eq("coach_id", user.id)
-    .order("is_pinned", { ascending: false })
-    .order("updated_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
   // Fetch habit assignments with recent logs
   const { data: habits } = await supabase
     .from("habit_assignments")
-    .select(`
-      *,
-      habit_logs (*)
-    `)
+    .select("*, habit_logs (*)")
     .eq("coach_id", user.id)
-    .eq("is_active", true);
+    .eq("active", true);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Check-ins</h1>
+        <h1 className="text-2xl font-bold">Check-ins</h1>
         <p className="text-muted-foreground">
           Review client progress, leave feedback, and manage everything in one place.
         </p>
       </div>
 
       <CheckInQueue
-        checkIns={(checkIns as CheckInWithClient[]) || []}
+        checkIns={(checkInsWithProfiles as CheckInWithClient[]) || []}
         bodyStats={bodyStats || []}
         coachNotes={coachNotes || []}
         habits={habits || []}
