@@ -141,12 +141,26 @@ export function WorkoutEditor({
                     />
                     <span className="text-xs text-muted-foreground">reps</span>
                   </div>
-                  <Badge variant="outline" className="h-7 text-xs">
-                    RIR {ex.rir ?? 2}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {ex.rest_seconds ?? 90}s rest
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">RIR</span>
+                    <Input
+                      type="number"
+                      value={ex.rir ?? 2}
+                      onChange={(e) => updateExercise(idx, "rir", parseInt(e.target.value) || 0)}
+                      className="h-7 w-12 text-center text-xs"
+                      min={0}
+                      max={5}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 ml-auto">
+                    <Input
+                      type="number"
+                      value={ex.rest_seconds ?? 90}
+                      onChange={(e) => updateExercise(idx, "rest_seconds", parseInt(e.target.value) || 60)}
+                      className="h-7 w-14 text-center text-xs"
+                    />
+                    <span className="text-xs text-muted-foreground">s rest</span>
+                  </div>
                 </div>
               </div>
             </div>
