@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Plus, MoreHorizontal, MessageSquare, Pause, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ interface ClientTableProps {
 }
 
 export function ClientTable({ clients, coachId }: ClientTableProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -135,7 +137,11 @@ export function ClientTable({ clients, coachId }: ClientTableProps) {
                   .slice(0, 2);
 
                 return (
-                  <TableRow key={client.id} className="border-border hover:bg-secondary/50">
+                  <TableRow
+                    key={client.id}
+                    className="border-border hover:bg-secondary/50 cursor-pointer"
+                    onClick={() => router.push(`/clients/${client.client_id}`)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
