@@ -78,14 +78,14 @@ export function ExercisePicker({ onSelect }: ExercisePickerProps) {
           Add exercise...
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="start">
+      <PopoverContent className="w-96 p-0" align="start" onWheel={(e) => e.stopPropagation()}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search exercises..."
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="max-h-72">
+          <CommandList className="max-h-80 overflow-y-auto overscroll-contain">
             {loading && <div className="py-3 text-center text-sm text-muted-foreground">Searching...</div>}
             {!loading && exercises.length === 0 && search.trim() && (
               <CommandEmpty>
