@@ -98,10 +98,9 @@ export function ProgramBuilder({ program }: { program: Program }) {
   }, [activePhaseId, phases, router, supabase]);
 
   const activateProgram = useCallback(async () => {
-    await supabase.from("coaching_programs").update({ status: "active" }).eq("id", program.id);
-    if (phases[0]) await supabase.from("program_phases").update({ status: "active" }).eq("id", phases[0].id);
+    await supabase.rpc("activate_program", { p_program_id: program.id });
     router.refresh();
-  }, [program.id, phases, router, supabase]);
+  }, [program.id, router, supabase]);
 
   const pauseProgram = useCallback(async () => {
     await supabase.from("coaching_programs").update({ status: "paused" }).eq("id", program.id);
