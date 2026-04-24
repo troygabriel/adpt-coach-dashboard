@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -41,6 +41,12 @@ export function WorkoutEditor({
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [saving, setSaving] = useState(false);
 
+  // Sync state when props change (different workout opened)
+  React.useEffect(() => {
+    setName(workoutName);
+    setExercises(initialExercises);
+  }, [workoutId, workoutName, initialExercises]);
+
   const addExercise = useCallback((ex: { name: string }) => {
     setExercises((prev) => [
       ...prev,
@@ -61,10 +67,16 @@ export function WorkoutEditor({
   const save = useCallback(async () => {
     setSaving(true);
     const supabase = createClient();
-    await supabase
+    const { error } = await supabase
       .from("phase_workouts")
       .update({ name, exercises })
       .eq("id", workoutId);
+
+    if (error) {
+      console.error("Save workout error:", error);
+      alert("Failed to save: " + error.message);
+    }
+
     setSaving(false);
     router.refresh();
     onClose();
