@@ -30,6 +30,10 @@ export function formatRelativeDate(date: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+export function pluralize(count: number, singular: string, plural?: string): string {
+  return `${count} ${count === 1 ? singular : plural ?? singular + "s"}`;
+}
+
 export function getStatusColor(status: string): string {
   switch (status) {
     case "active":

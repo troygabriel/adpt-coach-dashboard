@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkoutEditor } from "./workout-editor";
 import { ArrowLeft, Plus, Trash2, Play, Pause, ChevronRight } from "lucide-react";
+import { pluralize } from "@/lib/utils";
 
 type Exercise = {
   name: string;
@@ -122,7 +123,7 @@ export function ProgramBuilder({ program }: { program: Program }) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {program.profiles?.first_name || "Unassigned"} · {phases.length} phase{phases.length !== 1 ? "s" : ""}
+            {program.profiles?.first_name || "Unassigned"} · {pluralize(phases.length, "phase")}
           </p>
         </div>
         {program.status === "draft" && (
@@ -164,33 +165,39 @@ export function ProgramBuilder({ program }: { program: Program }) {
               {(phase.phase_workouts ?? [])
                 .sort((a, b) => a.day_number - b.day_number)
                 .map((workout) => {
-                  const totalSets = (workout.exercises ?? []).reduce((s, e) => s + e.sets, 0);
+                  const totalSets = (workout.exercises ?? []).reduce((s, e) => s + (e.sets || 0), 0);
+                  const dayLabel = `Day ${workout.day_number}`;
+                  const showCustomName = workout.name && workout.name.trim() !== dayLabel;
                   return (
                     <Card
                       key={workout.id}
-                      className="p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                      className="p-4 cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => setEditingWorkout(workout)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-muted-foreground">Day {workout.day_number}</span>
-                            <span className="font-semibold">{workout.name}</span>
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {dayLabel}
+                            </span>
+                            {showCustomName && (
+                              <span className="font-semibold">{workout.name}</span>
+                            )}
                           </div>
                           {workout.exercises?.length > 0 ? (
                             <>
-                              <p className="text-sm text-muted-foreground truncate max-w-md">
+                              <p className="truncate text-sm text-muted-foreground">
                                 {workout.exercises.map((e) => e.name).join(", ")}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {workout.exercises.length} exercises · {totalSets} sets
+                                {pluralize(workout.exercises.length, "exercise")} · {pluralize(totalSets, "set")}
                               </p>
                             </>
                           ) : (
                             <p className="text-sm text-muted-foreground">No exercises — tap to add</p>
                           )}
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </div>
                     </Card>
                   );

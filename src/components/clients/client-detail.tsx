@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Plus, MessageSquare, ChevronRight } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, MessageSquare, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
+import { cn, formatCurrency, pluralize } from "@/lib/utils";
 
 type ClientDetailProps = {
   coachId: string;
@@ -23,6 +26,17 @@ type ClientDetailProps = {
   notes: any[];
   recentWorkoutCount: number;
 };
+
+function getInitials(name: string | null | undefined) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export function ClientDetail({
   coachId,
@@ -41,7 +55,9 @@ export function ClientDetail({
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  // Macro editor state
+  // Macros editor state — start collapsed unless targets exist
+  const hasMacros = !!(macros?.calories || macros?.protein_g || macros?.carbs_g || macros?.fat_g);
+  const [editingMacros, setEditingMacros] = useState(!hasMacros ? false : false);
   const [calories, setCalories] = useState(macros?.calories?.toString() || "");
   const [protein, setProtein] = useState(macros?.protein_g?.toString() || "");
   const [carbs, setCarbs] = useState(macros?.carbs_g?.toString() || "");
@@ -51,49 +67,89 @@ export function ClientDetail({
   const addNote = useCallback(async () => {
     if (!newNote.trim()) return;
     setSavingNote(true);
-    await supabase.from("coach_notes").insert({
+    const { error } = await supabase.from("coach_notes").insert({
       coach_id: coachId,
       client_id: clientId,
       body: newNote.trim(),
     });
-    setNewNote("");
     setSavingNote(false);
+    if (error) {
+      toast.error("Couldn't add note", { description: error.message });
+      return;
+    }
+    setNewNote("");
     router.refresh();
   }, [newNote, coachId, clientId, router, supabase]);
 
   const saveMacros = useCallback(async () => {
     setSavingMacros(true);
-    await supabase.from("client_macros").upsert({
-      client_id: clientId,
-      coach_id: coachId,
-      calories: calories ? parseInt(calories) : null,
-      protein_g: protein ? parseInt(protein) : null,
-      carbs_g: carbs ? parseInt(carbs) : null,
-      fat_g: fat ? parseInt(fat) : null,
-      effective_from: new Date().toISOString().split("T")[0],
-    }, { onConflict: "client_id,effective_from" });
+    const { error } = await supabase.from("client_macros").upsert(
+      {
+        client_id: clientId,
+        coach_id: coachId,
+        calories: calories ? parseInt(calories) : null,
+        protein_g: protein ? parseInt(protein) : null,
+        carbs_g: carbs ? parseInt(carbs) : null,
+        fat_g: fat ? parseInt(fat) : null,
+        effective_from: new Date().toISOString().split("T")[0],
+      },
+      { onConflict: "client_id,effective_from" }
+    );
     setSavingMacros(false);
+    if (error) {
+      toast.error("Couldn't save targets", { description: error.message });
+      return;
+    }
+    toast.success("Nutrition targets saved");
+    setEditingMacros(false);
     router.refresh();
   }, [calories, protein, carbs, fat, clientId, coachId, router, supabase]);
 
   const latestWeight = bodyStats?.[0];
+  const latestWeightLbs = latestWeight?.weight_kg
+    ? (latestWeight.weight_kg * 2.205).toFixed(1)
+    : null;
   const totalWorkouts = workouts?.length ?? 0;
+  const activeProgram = programs.find((p: any) => p.status === "active");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/clients")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{profile?.first_name || "Client"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {profile?.email} · {coachClient.status} · ${((coachClient.monthly_rate_cents || 0) / 100).toFixed(0)}/mo
-          </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => router.push("/clients")}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Avatar className="h-12 w-12 shrink-0">
+            <AvatarFallback className="bg-muted text-sm font-medium text-muted-foreground">
+              {getInitials(profile?.first_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">
+                {profile?.first_name || "Client"}
+              </h1>
+              <Badge variant="outline" className="capitalize">
+                {coachClient.status}
+              </Badge>
+            </div>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              {profile?.email}
+              {coachClient.monthly_rate_cents
+                ? ` · ${formatCurrency(coachClient.monthly_rate_cents)}/mo`
+                : ""}
+            </p>
+          </div>
         </div>
-        <Button variant="outline" size="sm">
-          <MessageSquare className="mr-2 h-4 w-4" /> Message
+        <Button variant="outline" size="sm" className="shrink-0">
+          <MessageSquare className="mr-1.5 h-4 w-4" />
+          Message
         </Button>
       </div>
 
@@ -105,236 +161,380 @@ export function ClientDetail({
           <TabsTrigger value="progress">Progress</TabsTrigger>
         </TabsList>
 
-        {/* SUMMARY TAB */}
+        {/* SUMMARY */}
         <TabsContent value="summary" className="space-y-6 pt-4">
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-3">
-            <Card className="p-4 text-center">
-              <p className="text-2xl font-bold">{recentWorkoutCount}</p>
-              <p className="text-xs text-muted-foreground">Workouts (7d)</p>
-            </Card>
-            <Card className="p-4 text-center">
-              <p className="text-2xl font-bold">{totalWorkouts}</p>
-              <p className="text-xs text-muted-foreground">Total Workouts</p>
-            </Card>
-            <Card className="p-4 text-center">
-              <p className="text-2xl font-bold">
-                {latestWeight?.weight_kg ? `${(latestWeight.weight_kg * 2.205).toFixed(0)}` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Weight (lbs)</p>
-            </Card>
+          {/* Slim stat strip — matches dashboard pattern */}
+          <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+            <StatCell label="Workouts (7d)" value={recentWorkoutCount} />
+            <StatCell label="Total workouts" value={totalWorkouts} />
+            <StatCell
+              label="Latest weight"
+              value={latestWeightLbs ? `${latestWeightLbs}` : "—"}
+              suffix={latestWeightLbs ? "lbs" : undefined}
+            />
           </div>
 
-          {/* Current Program */}
-          <div>
-            <h3 className="font-semibold mb-2">Current Program</h3>
-            {programs.filter((p: any) => p.status === "active").length > 0 ? (
-              programs.filter((p: any) => p.status === "active").map((prog: any) => (
-                <Card
-                  key={prog.id}
-                  className="p-4 cursor-pointer hover:bg-accent/30"
-                  onClick={() => router.push(`/programs/${prog.id}`)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{prog.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {prog.program_phases?.length || 0} phases
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Card>
-              ))
+          {/* Current program */}
+          <section>
+            <h3 className="mb-2 text-sm font-semibold tracking-tight">Current program</h3>
+            {activeProgram ? (
+              <Card
+                className="flex cursor-pointer flex-row items-center justify-between p-4 transition-colors hover:bg-muted/40"
+                onClick={() => router.push(`/programs/${activeProgram.id}`)}
+              >
+                <div>
+                  <p className="font-medium">{activeProgram.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {pluralize(activeProgram.program_phases?.length ?? 0, "phase")}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Card>
             ) : (
-              <Card className="p-4">
-                <p className="text-sm text-muted-foreground">No active program</p>
+              <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+                <p className="text-sm text-muted-foreground">No active program assigned.</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-2"
+                  className="mt-3"
                   onClick={() => router.push("/programs")}
                 >
-                  <Plus className="mr-1 h-3 w-3" /> Assign Program
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Assign program
                 </Button>
+              </div>
+            )}
+          </section>
+
+          {/* Recent activity */}
+          <section>
+            <h3 className="mb-2 text-sm font-semibold tracking-tight">Recent activity</h3>
+            {workouts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No workouts logged yet.</p>
+            ) : (
+              <div className="rounded-xl border border-border bg-card">
+                {workouts.slice(0, 5).map((w: any, i: number) => (
+                  <div
+                    key={w.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-3",
+                      i !== Math.min(4, workouts.length - 1) && "border-b border-border"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {w.title || "Workout"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(w.started_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {w.ended_at && (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {Math.round(
+                          (new Date(w.ended_at).getTime() -
+                            new Date(w.started_at).getTime()) /
+                            60000
+                        )}
+                        {" min"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Nutrition targets — collapsed by default if not set */}
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold tracking-tight">Nutrition targets</h3>
+              {hasMacros && !editingMacros && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setEditingMacros(true)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Button>
+              )}
+            </div>
+
+            {!hasMacros && !editingMacros ? (
+              <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+                <p className="text-sm text-muted-foreground">No targets set.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setEditingMacros(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Set targets
+                </Button>
+              </div>
+            ) : !editingMacros ? (
+              <Card className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border p-0 sm:grid-cols-4">
+                <MacroCell label="Calories" value={macros?.calories} />
+                <MacroCell label="Protein" value={macros?.protein_g} suffix="g" />
+                <MacroCell label="Carbs" value={macros?.carbs_g} suffix="g" />
+                <MacroCell label="Fat" value={macros?.fat_g} suffix="g" />
+              </Card>
+            ) : (
+              <Card className="space-y-3 p-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <MacroInput label="Calories" value={calories} onChange={setCalories} />
+                  <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
+                  <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
+                  <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  {hasMacros && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingMacros(false);
+                        setCalories(macros?.calories?.toString() || "");
+                        setProtein(macros?.protein_g?.toString() || "");
+                        setCarbs(macros?.carbs_g?.toString() || "");
+                        setFat(macros?.fat_g?.toString() || "");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={saveMacros} disabled={savingMacros}>
+                    {savingMacros ? "Saving..." : "Save targets"}
+                  </Button>
+                </div>
               </Card>
             )}
-          </div>
+          </section>
 
-          {/* Recent Activity */}
-          <div>
-            <h3 className="font-semibold mb-2">Recent Activity</h3>
-            {workouts.slice(0, 5).map((w: any) => (
-              <div key={w.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div>
-                  <p className="text-sm font-medium">{w.title || "Workout"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(w.started_at).toLocaleDateString()}
-                  </p>
-                </div>
-                {w.ended_at && (
-                  <Badge variant="outline" className="text-xs">
-                    {Math.round((new Date(w.ended_at).getTime() - new Date(w.started_at).getTime()) / 60000)} min
-                  </Badge>
-                )}
-              </div>
-            ))}
-            {workouts.length === 0 && (
-              <p className="text-sm text-muted-foreground">No workouts logged yet</p>
-            )}
-          </div>
-
-          {/* Macros */}
-          <div>
-            <h3 className="font-semibold mb-2">Nutrition Targets</h3>
-            <Card className="p-4 space-y-3">
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground">Calories</label>
-                  <Input value={calories} onChange={(e) => setCalories(e.target.value)} type="number" className="h-8 mt-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Protein (g)</label>
-                  <Input value={protein} onChange={(e) => setProtein(e.target.value)} type="number" className="h-8 mt-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Carbs (g)</label>
-                  <Input value={carbs} onChange={(e) => setCarbs(e.target.value)} type="number" className="h-8 mt-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Fat (g)</label>
-                  <Input value={fat} onChange={(e) => setFat(e.target.value)} type="number" className="h-8 mt-1" />
-                </div>
-              </div>
-              <Button size="sm" onClick={saveMacros} disabled={savingMacros}>
-                {savingMacros ? "Saving..." : "Save Targets"}
-              </Button>
-            </Card>
-          </div>
-
-          {/* Coach Notes */}
-          <div>
-            <h3 className="font-semibold mb-2">Coach Notes</h3>
-            <div className="flex gap-2 mb-3">
+          {/* Coach notes */}
+          <section>
+            <h3 className="mb-2 text-sm font-semibold tracking-tight">Coach notes</h3>
+            <div className="mb-3 flex gap-2">
               <Textarea
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder="Add a note about this client..."
-                className="min-h-[60px]"
+                className="min-h-[60px] resize-none"
               />
-              <Button onClick={addNote} disabled={savingNote || !newNote.trim()} size="sm" className="self-end">
-                Add
+              <Button
+                onClick={addNote}
+                disabled={savingNote || !newNote.trim()}
+                size="sm"
+                className="self-end"
+              >
+                {savingNote ? "Saving..." : "Add"}
               </Button>
             </div>
-            {notes.map((note: any) => (
-              <div key={note.id} className="py-2 border-b last:border-0">
-                <p className="text-sm">{note.body}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(note.created_at).toLocaleDateString()}
-                </p>
+            {notes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No notes yet.</p>
+            ) : (
+              <div className="rounded-xl border border-border bg-card">
+                {notes.map((note: any, i: number) => (
+                  <div
+                    key={note.id}
+                    className={cn(
+                      "px-4 py-3",
+                      i !== notes.length - 1 && "border-b border-border"
+                    )}
+                  >
+                    <p className="text-sm">{note.body}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {new Date(note.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </section>
         </TabsContent>
 
-        {/* PROGRAMS TAB */}
-        <TabsContent value="programs" className="space-y-4 pt-4">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/programs")}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Create New Program
+        {/* PROGRAMS */}
+        <TabsContent value="programs" className="space-y-3 pt-4">
+          <Button variant="outline" onClick={() => router.push("/programs")}>
+            <Plus className="mr-2 h-4 w-4" /> Create new program
           </Button>
-          {programs.map((prog: any) => (
-            <Card
-              key={prog.id}
-              className="p-4 cursor-pointer hover:bg-accent/30"
-              onClick={() => router.push(`/programs/${prog.id}`)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
+          {programs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No programs assigned yet.</p>
+          ) : (
+            programs.map((prog: any) => (
+              <Card
+                key={prog.id}
+                className="flex cursor-pointer flex-row items-center justify-between p-4 transition-colors hover:bg-muted/40"
+                onClick={() => router.push(`/programs/${prog.id}`)}
+              >
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium">{prog.name}</p>
+                    <p className="truncate font-medium">{prog.name}</p>
                     <Badge variant={prog.status === "active" ? "default" : "secondary"}>
                       {prog.status}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {prog.program_phases?.length || 0} phases · Created {new Date(prog.created_at).toLocaleDateString()}
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {pluralize(prog.program_phases?.length ?? 0, "phase")} · Created{" "}
+                    {new Date(prog.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-          ))}
-          {programs.length === 0 && (
-            <p className="text-sm text-muted-foreground">No programs assigned yet.</p>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Card>
+            ))
           )}
         </TabsContent>
 
-        {/* PROGRESS TAB */}
+        {/* PROGRESS */}
         <TabsContent value="progress" className="space-y-6 pt-4">
-          {/* Weight trend */}
-          <div>
-            <h3 className="font-semibold mb-2">Weight History</h3>
-            {bodyStats.length > 0 ? (
-              <Card className="p-4">
-                <div className="space-y-2">
-                  {bodyStats.slice(0, 10).map((stat: any) => (
-                    <div key={stat.id} className="flex items-center justify-between py-1 border-b last:border-0">
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(stat.date).toLocaleDateString()}
-                      </span>
-                      <div className="flex gap-4">
-                        {stat.weight_kg && (
-                          <span className="text-sm font-medium">
-                            {(stat.weight_kg * 2.205).toFixed(1)} lbs
-                          </span>
-                        )}
-                        {stat.body_fat_pct && (
-                          <span className="text-sm text-muted-foreground">
-                            {stat.body_fat_pct}% BF
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
+          <section>
+            <h3 className="mb-2 text-sm font-semibold tracking-tight">Weight history</h3>
+            {bodyStats.length === 0 ? (
               <p className="text-sm text-muted-foreground">No body stats logged yet.</p>
-            )}
-          </div>
-
-          {/* Workout volume */}
-          <div>
-            <h3 className="font-semibold mb-2">Workout History</h3>
-            {workouts.length > 0 ? (
-              <Card className="p-4">
-                <div className="space-y-2">
-                  {workouts.slice(0, 10).map((w: any) => (
-                    <div key={w.id} className="flex items-center justify-between py-1 border-b last:border-0">
-                      <div>
-                        <p className="text-sm font-medium">{w.title || "Workout"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(w.started_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {w.ended_at && (
-                        <span className="text-xs text-muted-foreground">
-                          {Math.round((new Date(w.ended_at).getTime() - new Date(w.started_at).getTime()) / 60000)} min
+            ) : (
+              <div className="rounded-xl border border-border bg-card">
+                {bodyStats.slice(0, 10).map((stat: any, i: number) => (
+                  <div
+                    key={stat.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-2.5",
+                      i !== Math.min(9, bodyStats.length - 1) && "border-b border-border"
+                    )}
+                  >
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(stat.date).toLocaleDateString()}
+                    </span>
+                    <div className="flex gap-4 tabular-nums">
+                      {stat.weight_kg && (
+                        <span className="text-sm font-medium">
+                          {(stat.weight_kg * 2.205).toFixed(1)} lbs
+                        </span>
+                      )}
+                      {stat.body_fat_pct && (
+                        <span className="text-sm text-muted-foreground">
+                          {stat.body_fat_pct}% BF
                         </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <p className="text-sm text-muted-foreground">No workouts logged yet.</p>
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold tracking-tight">Workout history</h3>
+            {workouts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No workouts logged yet.</p>
+            ) : (
+              <div className="rounded-xl border border-border bg-card">
+                {workouts.slice(0, 10).map((w: any, i: number) => (
+                  <div
+                    key={w.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-2.5",
+                      i !== Math.min(9, workouts.length - 1) && "border-b border-border"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {w.title || "Workout"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(w.started_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {w.ended_at && (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {Math.round(
+                          (new Date(w.ended_at).getTime() -
+                            new Date(w.started_at).getTime()) /
+                            60000
+                        )}
+                        {" min"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function StatCell({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: string | number;
+  suffix?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1 bg-background p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-3xl font-semibold tracking-tight tabular-nums">
+        {value}
+        {suffix && <span className="ml-1 text-sm font-normal text-muted-foreground">{suffix}</span>}
+      </p>
+    </div>
+  );
+}
+
+function MacroCell({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: number | null | undefined;
+  suffix?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 bg-background p-3">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-lg font-semibold tabular-nums">
+        {value ?? "—"}
+        {value && suffix && (
+          <span className="ml-0.5 text-xs font-normal text-muted-foreground">{suffix}</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function MacroInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9"
+      />
     </div>
   );
 }

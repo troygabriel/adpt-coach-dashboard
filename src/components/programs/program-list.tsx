@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Plus, ChevronRight } from "lucide-react";
+import { pluralize } from "@/lib/utils";
 
 type Program = {
   id: string;
@@ -140,7 +141,7 @@ export function ProgramList({ programs, clients, coachId }: {
                     <Badge variant={statusColor(program.status)}>{program.status}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {program.profiles?.first_name || "Unassigned"} · {program.program_phases?.length || 0} phases
+                    {program.profiles?.first_name || "Unassigned"} · {pluralize(program.program_phases?.length ?? 0, "phase")}
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
