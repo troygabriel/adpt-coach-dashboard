@@ -10,10 +10,11 @@ export const ROUTES = {
   SETTINGS: "/settings",
 } as const;
 
+// Order reflects daily-use frequency: triage first, admin last.
 export const NAV_ITEMS = [
-  { title: "Dashboard", href: ROUTES.DASHBOARD, icon: "LayoutDashboard" },
-  { title: "Clients", href: ROUTES.CLIENTS, icon: "Users" },
+  { title: "Home", href: ROUTES.DASHBOARD, icon: "LayoutDashboard" },
   { title: "Check-ins", href: ROUTES.CHECK_INS, icon: "ClipboardCheck" },
+  { title: "Clients", href: ROUTES.CLIENTS, icon: "Users" },
   { title: "Programs", href: ROUTES.PROGRAMS, icon: "Dumbbell" },
   { title: "Messages", href: ROUTES.MESSAGES, icon: "MessageSquare" },
   { title: "Analytics", href: ROUTES.ANALYTICS, icon: "BarChart3" },

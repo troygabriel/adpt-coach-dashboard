@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -47,9 +48,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-primary">A</span>
+            <Image
+              src="/logo.png"
+              alt="ADPT"
+              width={28}
+              height={28}
+              priority
+              className="shrink-0"
+            />
             {!collapsed && (
-              <span className="text-lg font-semibold text-foreground">
+              <span className="text-lg font-semibold tracking-tight text-foreground">
                 ADPT
               </span>
             )}

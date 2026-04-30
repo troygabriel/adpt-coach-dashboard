@@ -1,132 +1,107 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Users, ClipboardCheck, MessageSquare, DollarSign, Plus, ArrowRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { StatCard } from "@/components/dashboard/stat-card";
+import { getCoachHomeData } from "@/lib/coach-home";
+import { StatStrip } from "@/components/dashboard/stat-strip";
+import { NeedsAttentionList } from "@/components/dashboard/needs-attention-list";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
-import type { DashboardStats } from "@/types";
 
 export const dynamic = "force-dynamic";
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  // Fetch dashboard stats via RPC
-  const { data: stats } = await supabase.rpc("get_coach_dashboard", {
-    p_coach_id: user.id,
-  });
-
-  const dashboardStats: DashboardStats = stats ?? {
-    active_clients: 0,
-    pending_checkins: 0,
-    unread_messages: 0,
-    monthly_revenue_cents: 0,
-  };
+  const data = await getCoachHomeData(user.id);
+  const firstName = data.coachName?.split(" ")[0] ?? "Coach";
+  const isEmpty = data.stats.activeClients === 0;
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back. Here&apos;s your overview.</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Active Clients"
-          value={dashboardStats.active_clients}
-          icon={<Users className="h-6 w-6" />}
-        />
-        <StatCard
-          title="Pending Check-ins"
-          value={dashboardStats.pending_checkins}
-          icon={<ClipboardCheck className="h-6 w-6" />}
-          variant={dashboardStats.pending_checkins > 0 ? "accent" : "default"}
-        />
-        <StatCard
-          title="Unread Messages"
-          value={dashboardStats.unread_messages}
-          icon={<MessageSquare className="h-6 w-6" />}
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={formatCurrency(dashboardStats.monthly_revenue_cents)}
-          icon={<DollarSign className="h-6 w-6" />}
-          variant="success"
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Link href="/clients">
-          <Card className="border-border bg-card transition-colors hover:bg-card/80 cursor-pointer group">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Plus className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Add Client</p>
-                <p className="text-sm text-muted-foreground">Invite a new client</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/check-ins">
-          <Card className="border-border bg-card transition-colors hover:bg-card/80 cursor-pointer group">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                <ClipboardCheck className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Review Check-ins</p>
-                <p className="text-sm text-muted-foreground">
-                  {dashboardStats.pending_checkins > 0
-                    ? `${dashboardStats.pending_checkins} pending`
-                    : "All caught up"}
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/programs">
-          <Card className="border-border bg-card transition-colors hover:bg-card/80 cursor-pointer group">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
-                <Plus className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">New Program</p>
-                <p className="text-sm text-muted-foreground">Create a training plan</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Recent Activity placeholder */}
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <CardTitle className="text-foreground">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {getGreeting()}, {firstName}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Activity feed coming soon. Check-in submissions, workout completions, and messages will appear here.
+            {isEmpty
+              ? "Add your first client to get started."
+              : "Here's who needs you right now."}
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <Link href="/clients">
+          <Button size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add client
+          </Button>
+        </Link>
+      </div>
+
+      {isEmpty ? (
+        <EmptyState />
+      ) : (
+        <>
+          {/* Slim stat strip — three concrete numbers, no chart, no MRR */}
+          <StatStrip
+            stats={[
+              {
+                label: "Active clients",
+                value: data.stats.activeClients,
+                href: "/clients",
+              },
+              {
+                label: "Trained this week",
+                value: data.stats.engagedThisWeek,
+                hint: `of ${data.stats.activeClients} active`,
+              },
+              {
+                label: "Programs ending ≤7d",
+                value: data.stats.programsEndingSoon,
+                href: "/programs",
+                emphasize: data.stats.programsEndingSoon > 0,
+              },
+            ]}
+          />
+
+          {/* Two-column on wide; stacks on narrow */}
+          <div className="grid gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <NeedsAttentionList items={data.needsAttention} />
+            </div>
+            <div className="lg:col-span-2">
+              <ActivityFeed items={data.activity} />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
+      <h3 className="text-base font-semibold tracking-tight">No clients yet</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Invite your first client and start building their program.
+      </p>
+      <Link href="/clients" className="mt-4 inline-block">
+        <Button size="sm">
+          <Plus className="mr-1.5 h-4 w-4" />
+          Add your first client
+        </Button>
+      </Link>
     </div>
   );
 }
