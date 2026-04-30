@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -37,8 +38,9 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent side="left" className="w-[240px] bg-sidebar border-sidebar-border p-0">
         <SheetHeader className="h-14 border-b border-sidebar-border px-4 flex justify-center">
-          <SheetTitle className="text-lg font-semibold text-foreground">
-            <span className="text-primary">ADPT</span>
+          <SheetTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+            <Image src="/logo.png" alt="ADPT" width={24} height={24} priority />
+            ADPT
           </SheetTitle>
         </SheetHeader>
         <nav className="space-y-1 px-3 py-4">
