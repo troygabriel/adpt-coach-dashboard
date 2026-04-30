@@ -227,7 +227,7 @@ export function WorkoutEditor({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <label className="block text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </label>
       {children}
