@@ -23,6 +23,7 @@ import {
   Pause,
   ChevronRight,
   MoreHorizontal,
+  Copy,
 } from "lucide-react";
 import { pluralize } from "@/lib/utils";
 
@@ -112,6 +113,82 @@ export function ProgramBuilder({ program }: { program: Program }) {
     if (activePhaseId === phaseId) setActivePhaseId(phases.find((p) => p.id !== phaseId)?.id ?? null);
     router.refresh();
   }, [activePhaseId, phases, router, supabase]);
+
+  const duplicatePhase = useCallback(async (phaseId: string) => {
+    const phase = phases.find((p) => p.id === phaseId);
+    if (!phase) return;
+
+    const nextNum = phases.length + 1;
+
+    const { data: newPhase, error } = await supabase
+      .from("program_phases")
+      .insert({
+        program_id: program.id,
+        name: `${phase.name} (copy)`,
+        description: phase.description,
+        phase_number: nextNum,
+        duration_weeks: phase.duration_weeks,
+        goal: phase.goal,
+        status: "upcoming",
+      })
+      .select("id")
+      .single();
+
+    if (error || !newPhase) {
+      toast.error("Couldn't duplicate phase", { description: error?.message });
+      return;
+    }
+
+    const workouts = phase.phase_workouts ?? [];
+    if (workouts.length > 0) {
+      const { error: wErr } = await supabase.from("phase_workouts").insert(
+        workouts.map((w) => ({
+          phase_id: newPhase.id,
+          day_number: w.day_number,
+          name: w.name,
+          exercises: w.exercises ?? [],
+          duration_minutes: w.duration_minutes,
+          notes: w.notes,
+        }))
+      );
+      if (wErr) {
+        await supabase.from("program_phases").delete().eq("id", newPhase.id);
+        toast.error("Couldn't duplicate phase workouts", { description: wErr.message });
+        return;
+      }
+    }
+
+    router.refresh();
+    setActivePhaseId(newPhase.id);
+    toast.success(`Duplicated ${phase.name}`);
+  }, [phases, program.id, router, supabase]);
+
+  const duplicateWorkout = useCallback(
+    async (workout: PhaseWorkout, phaseId: string) => {
+      const phase = phases.find((p) => p.id === phaseId);
+      const nextDay = (phase?.phase_workouts?.length ?? 0) + 1;
+      const defaultLabel = `Day ${workout.day_number}`;
+      const isDefaultName = !workout.name || workout.name.trim() === defaultLabel;
+      const newName = isDefaultName ? `Day ${nextDay}` : `${workout.name} (copy)`;
+
+      const { error } = await supabase.from("phase_workouts").insert({
+        phase_id: phaseId,
+        day_number: nextDay,
+        name: newName,
+        exercises: workout.exercises ?? [],
+        duration_minutes: workout.duration_minutes,
+        notes: workout.notes,
+      });
+
+      if (error) {
+        toast.error("Couldn't duplicate day", { description: error.message });
+        return;
+      }
+      router.refresh();
+      toast.success(`Duplicated ${defaultLabel}`);
+    },
+    [phases, router, supabase]
+  );
 
   const deleteWorkout = useCallback(
     async (workout: PhaseWorkout, phaseId: string) => {
@@ -211,9 +288,14 @@ export function ProgramBuilder({ program }: { program: Program }) {
             <TabsContent key={phase.id} value={phase.id} className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{phase.duration_weeks} weeks · {phase.goal || "General"}</span>
-                <Button variant="ghost" size="sm" className="text-destructive h-7" onClick={() => deletePhase(phase.id)}>
-                  <Trash2 className="mr-1 h-3 w-3" /> Delete
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7" onClick={() => duplicatePhase(phase.id)}>
+                    <Copy className="mr-1 h-3 w-3" /> Duplicate
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive h-7" onClick={() => deletePhase(phase.id)}>
+                    <Trash2 className="mr-1 h-3 w-3" /> Delete
+                  </Button>
+                </div>
               </div>
 
               {/* Workout cards */}
@@ -269,6 +351,16 @@ export function ProgramBuilder({ program }: { program: Program }) {
                               align="end"
                               onClick={(e) => e.stopPropagation()}
                             >
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateWorkout(workout, phase.id);
+                                }}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate day
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="cursor-pointer text-destructive focus:text-destructive"
                                 onClick={(e) => {
