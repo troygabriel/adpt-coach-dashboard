@@ -2,13 +2,28 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WorkoutEditor } from "./workout-editor";
-import { ArrowLeft, Plus, Trash2, Play, Pause, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Play,
+  Pause,
+  ChevronRight,
+  MoreHorizontal,
+} from "lucide-react";
 import { pluralize } from "@/lib/utils";
 
 type Exercise = {
@@ -97,6 +112,46 @@ export function ProgramBuilder({ program }: { program: Program }) {
     if (activePhaseId === phaseId) setActivePhaseId(phases.find((p) => p.id !== phaseId)?.id ?? null);
     router.refresh();
   }, [activePhaseId, phases, router, supabase]);
+
+  const deleteWorkout = useCallback(
+    async (workout: PhaseWorkout, phaseId: string) => {
+      const { error } = await supabase
+        .from("phase_workouts")
+        .delete()
+        .eq("id", workout.id);
+
+      if (error) {
+        toast.error("Couldn't delete day", { description: error.message });
+        return;
+      }
+
+      router.refresh();
+
+      const label = workout.name?.trim() || `Day ${workout.day_number}`;
+      toast.success(`Deleted ${label}`, {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const { error: insertError } = await supabase.from("phase_workouts").insert({
+              phase_id: phaseId,
+              day_number: workout.day_number,
+              name: workout.name,
+              exercises: workout.exercises ?? [],
+              duration_minutes: workout.duration_minutes,
+              notes: workout.notes,
+            });
+            if (insertError) {
+              toast.error("Couldn't restore day", { description: insertError.message });
+              return;
+            }
+            router.refresh();
+            toast.success(`${label} restored`);
+          },
+        },
+      });
+    },
+    [router, supabase]
+  );
 
   const activateProgram = useCallback(async () => {
     await supabase.rpc("activate_program", { p_program_id: program.id });
@@ -197,7 +252,37 @@ export function ProgramBuilder({ program }: { program: Program }) {
                             <p className="text-sm text-muted-foreground">No exercises — tap to add</p>
                           )}
                         </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Day options</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteWorkout(workout, phase.id);
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete day
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </div>
                     </Card>
                   );
