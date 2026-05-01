@@ -69,6 +69,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Fetch intake (filled by client during onboarding)
+  const { data: intake } = await supabase
+    .from("client_intakes")
+    .select("*")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
   // Calculate compliance (workouts in last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   const recentWorkouts = (workouts ?? []).filter((w: any) => w.started_at > sevenDaysAgo);
@@ -84,6 +91,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       bodyStats={(bodyStats as any[]) ?? []}
       macros={macros as any}
       notes={(notes as any[]) ?? []}
+      intake={intake}
       recentWorkoutCount={recentWorkouts.length}
     />
   );
