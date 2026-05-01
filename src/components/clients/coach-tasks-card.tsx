@@ -127,7 +127,8 @@ export function CoachTasksCard({ clientId, coachId, tasks }: Props) {
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   onClick={() => handleDelete(task.id)}
-                  title="Remove"
+                  title="Remove task"
+                  aria-label="Remove task"
                 >
                   <X className="h-4 w-4" />
                 </Button>

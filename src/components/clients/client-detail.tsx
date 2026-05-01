@@ -156,7 +156,12 @@ export function ClientDetail({
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() => router.push(`/messages?client=${clientId}`)}
+        >
           <MessageSquare className="mr-1.5 h-4 w-4" />
           Message
         </Button>
