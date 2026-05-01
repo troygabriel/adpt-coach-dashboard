@@ -15,6 +15,7 @@ import { Plus, MessageSquare, ChevronRight, ChevronLeft, Pencil } from "lucide-r
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
 import { PhotosTimeline, type ProgressPhoto } from "./photos-timeline";
+import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
 
 type ClientDetailProps = {
   coachId: string;
@@ -28,6 +29,7 @@ type ClientDetailProps = {
   notes: any[];
   intake: Intake | null;
   photos: ProgressPhoto[];
+  coachTasks: CoachTask[];
   recentWorkoutCount: number;
 };
 
@@ -54,6 +56,7 @@ export function ClientDetail({
   notes,
   intake,
   photos,
+  coachTasks,
   recentWorkoutCount,
 }: ClientDetailProps) {
   const router = useRouter();
@@ -182,6 +185,12 @@ export function ClientDetail({
           </div>
 
           <IntakeCard intake={intake} />
+
+          <CoachTasksCard
+            clientId={clientId}
+            coachId={coachId}
+            tasks={coachTasks}
+          />
 
           {/* Current program */}
           <section>

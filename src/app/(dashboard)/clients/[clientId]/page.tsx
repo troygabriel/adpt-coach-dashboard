@@ -76,6 +76,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     .eq("client_id", clientId)
     .maybeSingle();
 
+  // Fetch coach-scheduled tasks for this client (any date — past + future)
+  const { data: coachTasks } = await supabase
+    .from("coach_tasks")
+    .select("*")
+    .eq("coach_id", user.id)
+    .eq("client_id", clientId)
+    .order("scheduled_for", { ascending: true });
+
   // Fetch progress photos + sign URLs (signed for 1h)
   const { data: photoRows } = await supabase
     .from("progress_photos")
@@ -110,6 +118,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       notes={(notes as any[]) ?? []}
       intake={intake}
       photos={photos}
+      coachTasks={(coachTasks as any[]) ?? []}
       recentWorkoutCount={recentWorkouts.length}
     />
   );
