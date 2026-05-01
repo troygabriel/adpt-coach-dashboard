@@ -73,6 +73,7 @@ export function PendingInvitesList({ invites, appUrl }: Props) {
                 variant="ghost"
                 onClick={() => handleCopy(invite)}
                 title="Copy invite link"
+                aria-label="Copy invite link"
               >
                 {copiedId === invite.id ? (
                   <Check className="h-4 w-4" />
@@ -86,6 +87,7 @@ export function PendingInvitesList({ invites, appUrl }: Props) {
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => handleCancel(invite)}
                 title="Cancel invite"
+                aria-label="Cancel invite"
               >
                 <X className="h-4 w-4" />
               </Button>

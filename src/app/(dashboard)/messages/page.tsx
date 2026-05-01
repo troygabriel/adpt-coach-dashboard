@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; client?: string }>;
 }) {
-  const { c: selectedConversationId } = await searchParams;
+  const { c: convoParam, client: clientParam } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -77,11 +77,22 @@ export default async function MessagesPage({
     })
   );
 
+  // Resolve selection: explicit ?c= wins, else ?client= → look up conversation,
+  // else first conversation in the list.
+  let selectedId: string | null = null;
+  if (convoParam) {
+    selectedId = convoParam;
+  } else if (clientParam) {
+    selectedId =
+      previews.find((p) => p.clientId === clientParam)?.id ?? null;
+  }
+  selectedId = selectedId ?? previews[0]?.id ?? null;
+
   return (
     <MessagesClient
       coachId={user.id}
       conversations={previews}
-      selectedConversationId={selectedConversationId ?? previews[0]?.id ?? null}
+      selectedConversationId={selectedId}
     />
   );
 }

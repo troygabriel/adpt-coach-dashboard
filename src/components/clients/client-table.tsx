@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, MoreHorizontal, MessageSquare, Pause, Archive } from "lucide-react";
+import { Search, Plus, MoreHorizontal, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -176,22 +176,26 @@ export function ClientTable({ clients }: ClientTableProps) {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 text-muted-foreground"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Client options</span>
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-card border-border">
-                          <DropdownMenuItem className="cursor-pointer">
+                        <DropdownMenuContent
+                          align="end"
+                          className="bg-card border-border"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/messages?client=${client.client_id}`);
+                            }}
+                          >
                             <MessageSquare className="mr-2 h-4 w-4" />
                             Message
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer">
-                            <Pause className="mr-2 h-4 w-4" />
-                            Pause
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer text-destructive">
-                            <Archive className="mr-2 h-4 w-4" />
-                            Archive
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

@@ -87,6 +87,7 @@ export function PhotosTimeline({ photos }: { photos: ProgressPhoto[] }) {
                   key={p.id}
                   type="button"
                   onClick={() => setActive(p)}
+                  aria-label={`View ${POSE_LABELS[p.pose ?? "other"]} photo from ${formatDate(p.taken_at)}`}
                   className={cn(
                     "group relative aspect-[3/4] overflow-hidden rounded-md border bg-muted/30",
                     "transition-opacity hover:opacity-90"
