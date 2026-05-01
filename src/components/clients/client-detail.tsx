@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, MessageSquare, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
+import { PhotosTimeline, type ProgressPhoto } from "./photos-timeline";
 
 type ClientDetailProps = {
   coachId: string;
@@ -26,6 +27,7 @@ type ClientDetailProps = {
   macros: any;
   notes: any[];
   intake: Intake | null;
+  photos: ProgressPhoto[];
   recentWorkoutCount: number;
 };
 
@@ -51,6 +53,7 @@ export function ClientDetail({
   macros,
   notes,
   intake,
+  photos,
   recentWorkoutCount,
 }: ClientDetailProps) {
   const router = useRouter();
@@ -162,6 +165,7 @@ export function ClientDetail({
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="programs">Programs</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsTrigger value="photos">Photos</TabsTrigger>
         </TabsList>
 
         {/* SUMMARY */}
@@ -467,6 +471,11 @@ export function ClientDetail({
               </div>
             )}
           </section>
+        </TabsContent>
+
+        {/* PHOTOS */}
+        <TabsContent value="photos" className="space-y-6 pt-4">
+          <PhotosTimeline photos={photos} />
         </TabsContent>
       </Tabs>
     </div>
