@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, MessageSquare, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
+import { IntakeCard, type Intake } from "./intake-card";
 
 type ClientDetailProps = {
   coachId: string;
@@ -24,6 +25,7 @@ type ClientDetailProps = {
   bodyStats: any[];
   macros: any;
   notes: any[];
+  intake: Intake | null;
   recentWorkoutCount: number;
 };
 
@@ -48,6 +50,7 @@ export function ClientDetail({
   bodyStats,
   macros,
   notes,
+  intake,
   recentWorkoutCount,
 }: ClientDetailProps) {
   const router = useRouter();
@@ -173,6 +176,8 @@ export function ClientDetail({
               suffix={latestWeightLbs ? "lbs" : undefined}
             />
           </div>
+
+          <IntakeCard intake={intake} />
 
           {/* Current program */}
           <section>
