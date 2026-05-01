@@ -23,15 +23,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatCurrency, formatRelativeDate, getStatusColor } from "@/lib/utils";
-import { AddClientDialog } from "./add-client-dialog";
+import { InviteClientDialog } from "./invite-client-dialog";
 import type { ClientWithProfile } from "@/types";
 
 interface ClientTableProps {
   clients: ClientWithProfile[];
-  coachId: string;
 }
 
-export function ClientTable({ clients, coachId }: ClientTableProps) {
+export function ClientTable({ clients }: ClientTableProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -70,7 +69,7 @@ export function ClientTable({ clients, coachId }: ClientTableProps) {
           className="bg-primary text-primary-foreground hover:bg-primary-dark"
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Client
+          Invite Client
         </Button>
       </div>
 
@@ -205,10 +204,9 @@ export function ClientTable({ clients, coachId }: ClientTableProps) {
         </div>
       )}
 
-      <AddClientDialog
+      <InviteClientDialog
         open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
-        coachId={coachId}
       />
     </div>
   );
