@@ -235,7 +235,8 @@ See `~/troyg/Projects/ADPT/AGENTS.md` for the full list. Key rules:
 | Macro targets display in Meals tab | 🟡 | `client_macros` reads work; needs presentation polish |
 | Meal-plan PDF download | ⬜ | coach uploads PDF → mobile renders inline / download |
 | Habit logging | ⬜ | `habit_assignments` + `habit_logs` exist; need daily checklist UI |
-| Push notifications (message, check-in due, task due) | 🟡 | `lib/pushNotifications.ts` registers token; server-side send not wired |
+| Push notifications on new message | 🟡 | Edge Function `push-on-message` shipped — needs `supabase functions deploy` + DB Webhook config (see `supabase/functions/push-on-message/README.md`) |
+| Push notifications for check-in due / task due | ⬜ | reuse the push-on-message pattern with cron triggers |
 | Calendar tab | 🟡 | screen scaffolded; needs program-week view + log dots |
 | Coach-uploaded video form-checks | ⬜ | per-exercise video link or upload |
 | Voice notes (send/receive) | ⏸ | schema supports `message_type='voice'` |
@@ -279,7 +280,7 @@ See `~/troyg/Projects/ADPT/AGENTS.md` for the full list. Key rules:
 | Realtime publication on `messages` + `check_ins` | ✅ | |
 | Helper RPCs (`get_coach_dashboard`, `get_client_compliance`, `find_or_create_conversation`) | ✅ | |
 | Generated `types/database.ts` | 🟡 | exists but not wired into `createClient<Database>()` (Sprint 2 follow-up) |
-| Edge Functions for push notifications | ⬜ | listen on `messages` insert → fire FCM/APNs via `profiles.push_token` |
+| Edge Function: push-on-message | 🟡 | code in `supabase/functions/push-on-message/`; deploy + webhook wiring is a manual step |
 | Edge Functions for check-in auto-flagging | ⬜ | weight stall, missed workouts, low energy → write `flag_reasons` |
 | Stripe Connect webhook handler | ⬜ | populate `client_subscriptions` on subscription events |
 | Background job for compliance recompute | ⬜ | nightly cron via Supabase scheduled function |
