@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -17,7 +17,12 @@ type Message = {
   message_type: string;
   read_at: string | null;
   created_at: string;
+  pending?: boolean;
 };
+
+type Row =
+  | { kind: "separator"; key: string; label: string }
+  | { kind: "message"; key: string; message: Message };
 
 interface Props {
   coachId: string;
@@ -33,6 +38,42 @@ function formatTimestamp(d: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function dayLabel(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86400000);
+  if (diffDays < 7)
+    return date.toLocaleDateString([], { weekday: "long" });
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function buildRows(messages: Message[]): Row[] {
+  const rows: Row[] = [];
+  let lastDay = "";
+  for (const m of messages) {
+    const d = new Date(m.created_at);
+    const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (dayKey !== lastDay) {
+      lastDay = dayKey;
+      rows.push({ kind: "separator", key: `sep-${dayKey}`, label: dayLabel(d) });
+    }
+    rows.push({ kind: "message", key: m.id, message: m });
+  }
+  return rows;
 }
 
 export function ConversationThread({
@@ -129,29 +170,59 @@ export function ConversationThread({
     })();
   }, [messages, coachId, supabase, router]);
 
+  const rows = useMemo(() => buildRows(messages), [messages]);
+
   // Autoscroll to the latest message
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [rows.length]);
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text) return;
-    setSending(true);
-    const { error } = await supabase.from("messages").insert({
+
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: conversationId,
       sender_id: coachId,
       recipient_id: clientId,
       content: text,
       message_type: "text",
-    });
+      read_at: null,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setDraft("");
+    setSending(true);
+
+    const { data: inserted, error } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: coachId,
+        recipient_id: clientId,
+        content: text,
+        message_type: "text",
+      })
+      .select("*")
+      .single();
     setSending(false);
-    if (error) {
-      toast.error("Couldn't send", { description: error.message });
+    if (error || !inserted) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setDraft((d) => (d.length === 0 ? text : d));
+      toast.error("Couldn't send", { description: error?.message });
       return;
     }
-    setDraft("");
+
+    const real = inserted as Message;
+    setMessages((prev) => {
+      const withoutTemp = prev.filter((m) => m.id !== tempId);
+      if (withoutTemp.some((m) => m.id === real.id)) return withoutTemp;
+      return [...withoutTemp, real];
+    });
   }, [draft, supabase, conversationId, coachId, clientId]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -175,17 +246,28 @@ export function ConversationThread({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
           <p className="text-center text-sm text-muted-foreground">Loading…</p>
-        ) : messages.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">
             No messages yet. Say hi.
           </p>
         ) : (
           <div className="space-y-3">
-            {messages.map((m) => {
+            {rows.map((row) => {
+              if (row.kind === "separator") {
+                return (
+                  <p
+                    key={row.key}
+                    className="py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    {row.label}
+                  </p>
+                );
+              }
+              const m = row.message;
               const mine = m.sender_id === coachId;
               return (
                 <div
-                  key={m.id}
+                  key={row.key}
                   className={cn("flex", mine ? "justify-end" : "justify-start")}
                 >
                   <div
@@ -193,7 +275,8 @@ export function ConversationThread({
                       "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm",
                       mine
                         ? "bg-foreground text-background rounded-br-sm"
-                        : "bg-muted text-foreground rounded-bl-sm"
+                        : "bg-muted text-foreground rounded-bl-sm",
+                      m.pending && "opacity-60"
                     )}
                   >
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
@@ -204,7 +287,8 @@ export function ConversationThread({
                       )}
                     >
                       {formatTimestamp(m.created_at)}
-                      {mine && m.read_at ? " · Read" : ""}
+                      {mine && m.pending ? " · Sending…" : ""}
+                      {mine && !m.pending && m.read_at ? " · Read" : ""}
                     </p>
                   </div>
                 </div>
