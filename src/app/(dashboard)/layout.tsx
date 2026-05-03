@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { MessageNotifier } from "@/components/messages/message-notifier";
 import type { Coach } from "@/types";
 
 export default async function DashboardLayout({
@@ -62,5 +63,10 @@ export default async function DashboardLayout({
     coach = created;
   }
 
-  return <DashboardShell coach={coach as Coach | null}>{children}</DashboardShell>;
+  return (
+    <DashboardShell coach={coach as Coach | null}>
+      <MessageNotifier coachId={user.id} />
+      {children}
+    </DashboardShell>
+  );
 }
