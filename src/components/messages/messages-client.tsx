@@ -25,7 +25,7 @@ export function MessagesClient({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden rounded-lg border bg-card">
+    <div className="flex h-[calc(100vh-5.5rem)] overflow-hidden rounded-lg border bg-card md:h-[calc(100vh-6.5rem)] lg:h-[calc(100vh-7.5rem)]">
       <div className="flex w-full max-w-xs shrink-0 flex-col border-r sm:max-w-sm">
         <ConversationList
           conversations={conversations}
