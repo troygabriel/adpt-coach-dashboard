@@ -84,6 +84,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     .eq("client_id", clientId)
     .order("scheduled_for", { ascending: true });
 
+  // Fetch habit assignments (active + paused, both shown in the dashboard)
+  const { data: habits } = await supabase
+    .from("habit_assignments")
+    .select("*")
+    .eq("coach_id", user.id)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true });
+
   // Fetch progress photos + sign URLs (signed for 1h)
   const { data: photoRows } = await supabase
     .from("progress_photos")
@@ -119,6 +127,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       intake={intake}
       photos={photos}
       coachTasks={(coachTasks as any[]) ?? []}
+      habits={(habits as any[]) ?? []}
       recentWorkoutCount={recentWorkouts.length}
     />
   );

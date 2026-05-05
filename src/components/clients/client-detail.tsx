@@ -16,6 +16,7 @@ import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
 import { PhotosTimeline, type ProgressPhoto } from "./photos-timeline";
 import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
+import { HabitsCard, type HabitAssignment } from "./habits-card";
 
 type ClientDetailProps = {
   coachId: string;
@@ -30,6 +31,7 @@ type ClientDetailProps = {
   intake: Intake | null;
   photos: ProgressPhoto[];
   coachTasks: CoachTask[];
+  habits: HabitAssignment[];
   recentWorkoutCount: number;
 };
 
@@ -57,6 +59,7 @@ export function ClientDetail({
   intake,
   photos,
   coachTasks,
+  habits,
   recentWorkoutCount,
 }: ClientDetailProps) {
   const router = useRouter();
@@ -195,6 +198,12 @@ export function ClientDetail({
             clientId={clientId}
             coachId={coachId}
             tasks={coachTasks}
+          />
+
+          <HabitsCard
+            clientId={clientId}
+            coachId={coachId}
+            habits={habits}
           />
 
           {/* Current program */}
