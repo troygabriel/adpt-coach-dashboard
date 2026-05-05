@@ -5,7 +5,7 @@ export type AttentionReason =
   | "no_program"
   | "program_ending_soon"
   | "no_workout_7d"
-  | "no_checkin_7d";
+  | "no_message_7d";
 
 export type AttentionItem = {
   clientId: string;
@@ -14,13 +14,27 @@ export type AttentionItem = {
   programEndDate: string | null;
 };
 
+export type AttentionBuckets = {
+  needNewProgram: AttentionItem[];
+  endingSoon: AttentionItem[];
+  notTraining: AttentionItem[];
+  notMessaged: AttentionItem[];
+};
+
+export type ActivityType = "workout" | "checkin" | "photo" | "body_stat";
+
 export type ActivityItem = {
   id: string;
-  type: "workout" | "checkin";
+  type: ActivityType;
   clientId: string;
   firstName: string | null;
-  summary: string;
+  /** Verb phrase, rendered in muted text. e.g. "completed", "submitted", "added", "weighed in at" */
+  verb: string;
+  /** Object phrase, rendered in foreground. e.g. workout name, "a check-in", "161.0 lbs". null = no foreground emphasis. */
+  object: string | null;
   occurredAt: string;
+  /** For photo type: signed URLs for inline thumbnails (cap 3). */
+  photoUrls?: string[];
 };
 
 export type CoachHomeData = {
@@ -30,15 +44,16 @@ export type CoachHomeData = {
     engagedThisWeek: number;
     programsEndingSoon: number;
   };
-  needsAttention: AttentionItem[];
+  buckets: AttentionBuckets;
+  totalNeedingAttention: number;
   activity: ActivityItem[];
 };
 
-const REASON_RANK: Record<AttentionReason, number> = {
-  no_program: 4,
-  program_ending_soon: 3,
-  no_workout_7d: 2,
-  no_checkin_7d: 1,
+export const REASON_LABEL: Record<AttentionReason, string> = {
+  no_program: "No program",
+  program_ending_soon: "Phase ending soon",
+  no_workout_7d: "No training 7d+",
+  no_message_7d: "Not messaged 7d+",
 };
 
 export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> {
@@ -46,16 +61,14 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
   const now = new Date();
   const sevenDaysAgo = subDays(now, 7).toISOString();
   const fourteenDaysAgo = subDays(now, 14).toISOString();
-  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 86400000).toISOString();
 
-  // Coach display name
   const { data: coach } = await supabase
     .from("coaches")
     .select("display_name")
     .eq("id", coachId)
     .maybeSingle();
 
-  // Active roster
   const { data: roster } = await supabase
     .from("coach_clients")
     .select("client_id")
@@ -68,7 +81,8 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
     return {
       coachName: coach?.display_name ?? null,
       stats: { activeClients: 0, engagedThisWeek: 0, programsEndingSoon: 0 },
-      needsAttention: [],
+      buckets: { needNewProgram: [], endingSoon: [], notTraining: [], notMessaged: [] },
+      totalNeedingAttention: 0,
       activity: [],
     };
   }
@@ -78,6 +92,9 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
     { data: programs },
     { data: checkIns },
     { data: sessions },
+    { data: coachMessages },
+    { data: photos },
+    { data: bodyStats },
   ] = await Promise.all([
     supabase.from("profiles").select("id, first_name").in("id", clientIds),
     supabase
@@ -100,17 +117,30 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
       .in("user_id", clientIds)
       .gte("started_at", fourteenDaysAgo)
       .order("started_at", { ascending: false }),
+    supabase
+      .from("messages")
+      .select("recipient_id, created_at")
+      .eq("sender_id", coachId)
+      .in("recipient_id", clientIds)
+      .gte("created_at", fourteenDaysAgo)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("progress_photos")
+      .select("id, client_id, storage_path, taken_at, created_at, pose")
+      .in("client_id", clientIds)
+      .gte("created_at", fourteenDaysAgo)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("body_stats")
+      .select("id, client_id, weight_kg, date, created_at")
+      .in("client_id", clientIds)
+      .gte("created_at", fourteenDaysAgo)
+      .not("weight_kg", "is", null)
+      .order("created_at", { ascending: false }),
   ]);
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
   const programByClient = new Map((programs ?? []).map((p) => [p.client_id, p]));
-
-  const lastCheckinByClient = new Map<string, string>();
-  for (const ci of checkIns ?? []) {
-    if (!lastCheckinByClient.has(ci.client_id) && ci.submitted_at) {
-      lastCheckinByClient.set(ci.client_id, ci.submitted_at);
-    }
-  }
 
   const lastSessionByClient = new Map<string, string>();
   for (const s of sessions ?? []) {
@@ -119,8 +149,15 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
     }
   }
 
-  // Compose Needs Attention
-  const needsAttention: AttentionItem[] = [];
+  const lastCoachMessageByClient = new Map<string, string>();
+  for (const m of coachMessages ?? []) {
+    if (!lastCoachMessageByClient.has(m.recipient_id)) {
+      lastCoachMessageByClient.set(m.recipient_id, m.created_at);
+    }
+  }
+
+  // Derive AttentionItems per client, then bucket.
+  const itemsByClient = new Map<string, AttentionItem>();
   for (const clientId of clientIds) {
     const profile = profileMap.get(clientId);
     const reasons: AttentionReason[] = [];
@@ -128,7 +165,11 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
 
     if (!program) {
       reasons.push("no_program");
-    } else if (program.end_date && program.end_date <= sevenDaysFromNow && program.end_date >= now.toISOString()) {
+    } else if (
+      program.end_date &&
+      program.end_date <= sevenDaysFromNow &&
+      program.end_date >= now.toISOString()
+    ) {
       reasons.push("program_ending_soon");
     }
 
@@ -137,13 +178,13 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
       reasons.push("no_workout_7d");
     }
 
-    const lastCheckin = lastCheckinByClient.get(clientId);
-    if (!lastCheckin || lastCheckin < sevenDaysAgo) {
-      reasons.push("no_checkin_7d");
+    const lastCoachMsg = lastCoachMessageByClient.get(clientId);
+    if (!lastCoachMsg || lastCoachMsg < sevenDaysAgo) {
+      reasons.push("no_message_7d");
     }
 
     if (reasons.length > 0) {
-      needsAttention.push({
+      itemsByClient.set(clientId, {
         clientId,
         firstName: profile?.first_name ?? null,
         reasons,
@@ -152,15 +193,21 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
     }
   }
 
-  // Sort by severity (highest reason rank first, then count of reasons)
-  needsAttention.sort((a, b) => {
-    const aMax = Math.max(...a.reasons.map((r) => REASON_RANK[r]));
-    const bMax = Math.max(...b.reasons.map((r) => REASON_RANK[r]));
-    if (bMax !== aMax) return bMax - aMax;
-    return b.reasons.length - a.reasons.length;
-  });
+  // A client can appear in multiple buckets. Each bucket is independent.
+  const buckets: AttentionBuckets = {
+    needNewProgram: [],
+    endingSoon: [],
+    notTraining: [],
+    notMessaged: [],
+  };
+  for (const item of itemsByClient.values()) {
+    if (item.reasons.includes("no_program")) buckets.needNewProgram.push(item);
+    if (item.reasons.includes("program_ending_soon")) buckets.endingSoon.push(item);
+    if (item.reasons.includes("no_workout_7d")) buckets.notTraining.push(item);
+    if (item.reasons.includes("no_message_7d")) buckets.notMessaged.push(item);
+  }
 
-  // Compose Activity feed (latest 20 events across sessions + check-ins)
+  // Activity feed across four event types.
   const activity: ActivityItem[] = [];
 
   for (const s of sessions ?? []) {
@@ -170,7 +217,8 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
       type: "workout",
       clientId: s.user_id,
       firstName: profile?.first_name ?? null,
-      summary: s.ended_at ? `completed ${s.title || "a workout"}` : `started ${s.title || "a workout"}`,
+      verb: s.ended_at ? "completed" : "started",
+      object: s.title || "a workout",
       occurredAt: s.started_at,
     });
   }
@@ -183,8 +231,68 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
       type: "checkin",
       clientId: ci.client_id,
       firstName: profile?.first_name ?? null,
-      summary: "submitted a check-in",
+      verb: "submitted",
+      object: "a check-in",
       occurredAt: ci.submitted_at,
+    });
+  }
+
+  for (const bs of bodyStats ?? []) {
+    if (bs.weight_kg == null) continue;
+    const profile = profileMap.get(bs.client_id);
+    const lbs = (Number(bs.weight_kg) * 2.20462).toFixed(1);
+    activity.push({
+      id: `b-${bs.id}`,
+      type: "body_stat",
+      clientId: bs.client_id,
+      firstName: profile?.first_name ?? null,
+      verb: "weighed in at",
+      object: `${lbs} lbs`,
+      occurredAt: bs.created_at,
+    });
+  }
+
+  // Photos: group by (client, day) so 5 photos in one session = 1 row.
+  // Sign URLs only for the most-recent few groups; older groups render without thumbnails.
+  type PhotoRow = NonNullable<typeof photos>[number];
+  const photoGroups = new Map<string, PhotoRow[]>();
+  for (const p of photos ?? []) {
+    const day = p.created_at.slice(0, 10);
+    const key = `${p.client_id}-${day}`;
+    const arr = photoGroups.get(key) ?? [];
+    arr.push(p);
+    photoGroups.set(key, arr);
+  }
+
+  let signedCount = 0;
+  for (const [key, group] of photoGroups) {
+    const first = group[0];
+    const profile = profileMap.get(first.client_id);
+    let photoUrls: string[] = [];
+    if (signedCount < 5) {
+      const toSign = group.slice(0, 3);
+      photoUrls = (
+        await Promise.all(
+          toSign.map(async (p) => {
+            const { data } = await supabase.storage
+              .from("progress-photos")
+              .createSignedUrl(p.storage_path, 3600);
+            return data?.signedUrl ?? null;
+          })
+        )
+      ).filter((u): u is string => !!u);
+      signedCount++;
+    }
+    activity.push({
+      id: `p-${key}`,
+      type: "photo",
+      clientId: first.client_id,
+      firstName: profile?.first_name ?? null,
+      verb: "added",
+      object:
+        group.length === 1 ? "a progress photo" : `${group.length} progress photos`,
+      occurredAt: first.created_at,
+      photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
     });
   }
 
@@ -197,7 +305,10 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
   }
 
   const programsEndingSoon = (programs ?? []).filter(
-    (p) => p.end_date && p.end_date >= now.toISOString() && p.end_date <= sevenDaysFromNow
+    (p) =>
+      p.end_date &&
+      p.end_date >= now.toISOString() &&
+      p.end_date <= sevenDaysFromNow
   ).length;
 
   return {
@@ -207,14 +318,8 @@ export async function getCoachHomeData(coachId: string): Promise<CoachHomeData> 
       engagedThisWeek: engagedClients.size,
       programsEndingSoon,
     },
-    needsAttention: needsAttention.slice(0, 12),
-    activity: activity.slice(0, 20),
+    buckets,
+    totalNeedingAttention: itemsByClient.size,
+    activity: activity.slice(0, 30),
   };
 }
-
-export const REASON_LABEL: Record<AttentionReason, string> = {
-  no_program: "No program",
-  program_ending_soon: "Program ending soon",
-  no_workout_7d: "No workout 7d+",
-  no_checkin_7d: "No check-in 7d+",
-};

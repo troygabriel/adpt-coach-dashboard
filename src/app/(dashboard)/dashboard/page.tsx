@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCoachHomeData } from "@/lib/coach-home";
-import { StatStrip } from "@/components/dashboard/stat-strip";
-import { NeedsAttentionList } from "@/components/dashboard/needs-attention-list";
+import { StatLine } from "@/components/patterns/stat-line";
+import { NeedsAttentionBuckets } from "@/components/dashboard/needs-attention-buckets";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Button } from "@/components/ui/button";
 
@@ -52,24 +52,24 @@ export default async function DashboardPage() {
         <EmptyState />
       ) : (
         <>
-          {/* Slim stat strip — three concrete numbers, no chart, no MRR */}
-          <StatStrip
-            stats={[
+          <StatLine
+            items={[
               {
-                label: "Active clients",
                 value: data.stats.activeClients,
+                template: "{n} active",
+                zeroText: "no active clients",
                 href: "/clients",
               },
               {
-                label: "Trained this week",
                 value: data.stats.engagedThisWeek,
-                hint: `of ${data.stats.activeClients} active`,
+                template: "{n} trained this week",
+                zeroText: "no one trained this week",
               },
               {
-                label: "Programs ending ≤7d",
                 value: data.stats.programsEndingSoon,
+                template: "{n} programs ending soon",
+                zeroText: "no programs ending soon",
                 href: "/programs",
-                emphasize: data.stats.programsEndingSoon > 0,
               },
             ]}
           />
@@ -77,7 +77,10 @@ export default async function DashboardPage() {
           {/* Two-column on wide; stacks on narrow */}
           <div className="grid gap-6 lg:grid-cols-5">
             <div className="lg:col-span-3">
-              <NeedsAttentionList items={data.needsAttention} />
+              <NeedsAttentionBuckets
+                buckets={data.buckets}
+                total={data.totalNeedingAttention}
+              />
             </div>
             <div className="lg:col-span-2">
               <ActivityFeed items={data.activity} />
