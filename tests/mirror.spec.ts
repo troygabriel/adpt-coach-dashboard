@@ -58,4 +58,13 @@ test.describe("Client Mirror — sidebar swap + compliance row", () => {
     await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
     await expect(page.getByPlaceholder(/add a note/i)).toBeVisible();
   });
+
+  test("Training program sub-page renders inside mirror", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /training program/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/training-program/);
+    await expect(page.getByRole("heading", { name: /training program/i })).toBeVisible();
+    // Mirror sidebar still visible
+    await expect(page.getByRole("link", { name: /return to overview/i })).toBeVisible();
+  });
 });
