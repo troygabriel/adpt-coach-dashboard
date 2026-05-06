@@ -11,12 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, MessageSquare, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
+import { Plus, MessageSquare, ChevronRight, Pencil } from "lucide-react";
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
 import { PhotosTimeline, type ProgressPhoto } from "./photos-timeline";
 import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
 import { HabitsCard, type HabitAssignment } from "./habits-card";
+import { ComplianceRow } from "./compliance-row";
 
 type ClientDetailProps = {
   coachId: string;
@@ -126,17 +127,9 @@ export function ClientDetail({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
+      {/* Header — sidebar provides Return to overview, no back button needed here */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={() => router.push("/clients")}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
           <Avatar className="h-12 w-12 shrink-0">
             <AvatarFallback className="bg-muted text-sm font-medium text-muted-foreground">
               {getInitials(profile?.first_name)}
@@ -181,6 +174,8 @@ export function ClientDetail({
 
         {/* SUMMARY */}
         <TabsContent value="summary" className="space-y-6 pt-4">
+          <ComplianceRow programs={programs} workouts={workouts} />
+
           {/* Slim stat strip — matches dashboard pattern */}
           <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
             <StatCell label="Workouts (7d)" value={recentWorkoutCount} />
