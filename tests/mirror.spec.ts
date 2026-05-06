@@ -39,4 +39,23 @@ test.describe("Client Mirror — sidebar swap + compliance row", () => {
     await page.getByRole("link", { name: /return to overview/i }).click();
     await expect(page).toHaveURL(/\/clients$/);
   });
+
+  test("Calendar sub-page renders inside mirror context", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /^calendar$/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/calendar/);
+    await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
+    // Mirror sidebar still present
+    await expect(page.getByRole("link", { name: /return to overview/i })).toBeVisible();
+    // Per-client view: client filter dropdown is hidden
+    await expect(page.locator('[role="combobox"]')).toHaveCount(0);
+  });
+
+  test("Notes sub-page renders + composer is visible", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /^notes$/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/notes/);
+    await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
+    await expect(page.getByPlaceholder(/add a note/i)).toBeVisible();
+  });
 });

@@ -35,12 +35,12 @@ type SubPage = {
 
 const SUB_PAGES: SubPage[] = [
   { key: "dashboard", title: "Dashboard", icon: LayoutDashboard, segment: "" },
-  { key: "calendar", title: "Calendar", icon: Calendar, segment: null },
+  { key: "calendar", title: "Calendar", icon: Calendar, segment: "calendar" },
   { key: "habits", title: "Goals & habits", icon: ListChecks, segment: null },
   { key: "program", title: "Training program", icon: Dumbbell, segment: null },
   { key: "meals", title: "Meal plan", icon: UtensilsCrossed, segment: null },
   { key: "progress", title: "Progress", icon: TrendingUp, segment: null },
-  { key: "notes", title: "Notes", icon: StickyNote, segment: null },
+  { key: "notes", title: "Notes", icon: StickyNote, segment: "notes" },
 ];
 
 function getInitials(name: string | null | undefined) {

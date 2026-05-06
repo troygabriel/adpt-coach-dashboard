@@ -88,12 +88,18 @@ export function CalendarMonth({
   tasks,
   clients,
   clientFilter,
+  /** Hide the client dropdown — used when the route already scopes to one client (e.g. the per-client mirror calendar). */
+  hideClientFilter = false,
+  /** Override the URL the prev/next buttons navigate to. Defaults to /calendar. */
+  basePath = "/calendar",
 }: {
   year: number;
   month: number;
   tasks: Task[];
   clients: ClientOption[];
   clientFilter: string | null;
+  hideClientFilter?: boolean;
+  basePath?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -101,14 +107,14 @@ export function CalendarMonth({
   const navigate = (newYear: number, newMonth: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("month", fmtMonthParam(newYear, newMonth));
-    router.push(`/calendar?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   const setClient = (id: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (id) params.set("client", id);
     else params.delete("client");
-    router.push(`/calendar?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   const goPrev = () => {
@@ -184,22 +190,24 @@ export function CalendarMonth({
           </div>
         </div>
 
-        <Select
-          value={clientFilter ?? "all"}
-          onValueChange={(v) => setClient(v === "all" ? null : v)}
-        >
-          <SelectTrigger className="h-8 w-[180px]">
-            <SelectValue placeholder="All clients" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All clients</SelectItem>
-            {clients.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.firstName ?? "Unnamed"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!hideClientFilter && (
+          <Select
+            value={clientFilter ?? "all"}
+            onValueChange={(v) => setClient(v === "all" ? null : v)}
+          >
+            <SelectTrigger className="h-8 w-[180px]">
+              <SelectValue placeholder="All clients" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All clients</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.firstName ?? "Unnamed"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </header>
 
       {/* Weekday header */}
