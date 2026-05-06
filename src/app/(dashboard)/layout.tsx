@@ -63,8 +63,18 @@ export default async function DashboardLayout({
     coach = created;
   }
 
+  // Unread message count for the sidebar badge.
+  const { count: unreadMessages } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", user.id)
+    .is("read_at", null);
+
   return (
-    <DashboardShell coach={coach as Coach | null}>
+    <DashboardShell
+      coach={coach as Coach | null}
+      unreadMessages={unreadMessages ?? 0}
+    >
       <MessageNotifier coachId={user.id} />
       {children}
     </DashboardShell>

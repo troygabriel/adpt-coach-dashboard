@@ -9,12 +9,20 @@ import type { Coach } from "@/types";
 
 interface DashboardShellProps {
   coach: Coach | null;
+  unreadMessages?: number;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ coach, children }: DashboardShellProps) {
+export function DashboardShell({
+  coach,
+  unreadMessages = 0,
+  children,
+}: DashboardShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const badges: Record<string, number> = {};
+  if (unreadMessages > 0) badges["/messages"] = unreadMessages;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -23,6 +31,7 @@ export function DashboardShell({ coach, children }: DashboardShellProps) {
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          badges={badges}
         />
       </div>
 
@@ -30,6 +39,7 @@ export function DashboardShell({ coach, children }: DashboardShellProps) {
       <MobileNav
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
+        badges={badges}
       />
 
       {/* Main content */}
