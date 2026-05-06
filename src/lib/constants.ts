@@ -4,6 +4,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   CLIENTS: "/clients",
   CHECK_INS: "/check-ins",
+  CALENDAR: "/calendar",
   PROGRAMS: "/programs",
   MESSAGES: "/messages",
   ANALYTICS: "/analytics",
@@ -14,6 +15,7 @@ export const ROUTES = {
 export const NAV_ITEMS = [
   { title: "Home", href: ROUTES.DASHBOARD, icon: "LayoutDashboard" },
   { title: "Check-ins", href: ROUTES.CHECK_INS, icon: "ClipboardCheck" },
+  { title: "Calendar", href: ROUTES.CALENDAR, icon: "Calendar" },
   { title: "Clients", href: ROUTES.CLIENTS, icon: "Users" },
   { title: "Programs", href: ROUTES.PROGRAMS, icon: "Dumbbell" },
   { title: "Messages", href: ROUTES.MESSAGES, icon: "MessageSquare" },
