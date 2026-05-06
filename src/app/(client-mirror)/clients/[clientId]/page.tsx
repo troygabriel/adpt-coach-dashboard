@@ -92,23 +92,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     .eq("client_id", clientId)
     .order("created_at", { ascending: true });
 
-  // Fetch progress photos + sign URLs (signed for 1h)
-  const { data: photoRows } = await supabase
-    .from("progress_photos")
-    .select("id, storage_path, pose, taken_at, created_at, notes")
-    .eq("client_id", clientId)
-    .order("taken_at", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  const photos = await Promise.all(
-    (photoRows ?? []).map(async (row) => {
-      const { data: signed } = await supabase.storage
-        .from("progress-photos")
-        .createSignedUrl(row.storage_path, 3600);
-      return { ...row, url: signed?.signedUrl ?? null };
-    })
-  );
-
   // Calculate compliance (workouts in last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   const recentWorkouts = (workouts ?? []).filter((w: any) => w.started_at > sevenDaysAgo);
@@ -125,7 +108,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       macros={macros as any}
       notes={(notes as any[]) ?? []}
       intake={intake}
-      photos={photos}
       coachTasks={(coachTasks as any[]) ?? []}
       habits={(habits as any[]) ?? []}
       recentWorkoutCount={recentWorkouts.length}
