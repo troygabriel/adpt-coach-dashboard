@@ -76,4 +76,23 @@ test.describe("Client Mirror — sidebar swap + compliance row", () => {
     await expect(page.getByText(/recent weigh-ins/i)).toBeVisible();
     await expect(page.getByText(/progress photos/i)).toBeVisible();
   });
+
+  test("Goals & habits sub-page renders inside mirror", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /goals & habits/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/habits/);
+    await expect(page.getByRole("heading", { name: /goals & habits/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /return to overview/i })).toBeVisible();
+  });
+
+  test("Meal plan sub-page renders macro targets", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /meal plan/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/meals/);
+    await expect(page.getByRole("heading", { name: /meal plan/i })).toBeVisible();
+    // Either the empty state ("No targets set") or the targets table is present.
+    const emptyState = page.getByText(/no targets set/i);
+    const targets = page.getByText(/daily targets/i);
+    await expect(emptyState.or(targets)).toBeVisible();
+  });
 });

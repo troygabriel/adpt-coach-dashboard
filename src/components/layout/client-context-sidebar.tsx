@@ -36,9 +36,9 @@ type SubPage = {
 const SUB_PAGES: SubPage[] = [
   { key: "dashboard", title: "Dashboard", icon: LayoutDashboard, segment: "" },
   { key: "calendar", title: "Calendar", icon: Calendar, segment: "calendar" },
-  { key: "habits", title: "Goals & habits", icon: ListChecks, segment: null },
+  { key: "habits", title: "Goals & habits", icon: ListChecks, segment: "habits" },
   { key: "program", title: "Training program", icon: Dumbbell, segment: "training-program" },
-  { key: "meals", title: "Meal plan", icon: UtensilsCrossed, segment: null },
+  { key: "meals", title: "Meal plan", icon: UtensilsCrossed, segment: "meals" },
   { key: "progress", title: "Progress", icon: TrendingUp, segment: "progress" },
   { key: "notes", title: "Notes", icon: StickyNote, segment: "notes" },
 ];
