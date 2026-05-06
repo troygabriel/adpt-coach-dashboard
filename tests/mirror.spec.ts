@@ -67,4 +67,13 @@ test.describe("Client Mirror — sidebar swap + compliance row", () => {
     // Mirror sidebar still visible
     await expect(page.getByRole("link", { name: /return to overview/i })).toBeVisible();
   });
+
+  test("Progress sub-page renders charts + photos sections", async ({ page }) => {
+    await openFirstClient(page);
+    await page.getByRole("link", { name: /^progress$/i }).click();
+    await expect(page).toHaveURL(/\/clients\/[a-f0-9-]+\/progress/);
+    await expect(page.getByRole("heading", { name: "Progress" })).toBeVisible();
+    await expect(page.getByText(/recent weigh-ins/i)).toBeVisible();
+    await expect(page.getByText(/progress photos/i)).toBeVisible();
+  });
 });
