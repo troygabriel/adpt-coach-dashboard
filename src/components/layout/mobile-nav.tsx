@@ -4,13 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  Users,
+  BarChart3,
+  Calendar,
   ClipboardCheck,
   Dumbbell,
+  LayoutDashboard,
   MessageSquare,
-  BarChart3,
   Settings,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -20,6 +21,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   Users,
   ClipboardCheck,
+  Calendar,
   Dumbbell,
   MessageSquare,
   BarChart3,
