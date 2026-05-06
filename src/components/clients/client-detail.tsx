@@ -8,13 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, MessageSquare, ChevronRight, Pencil } from "lucide-react";
+import { ChevronRight, MessageSquare, Pencil, Plus } from "lucide-react";
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
-import { PhotosTimeline, type ProgressPhoto } from "./photos-timeline";
 import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
 import { HabitsCard, type HabitAssignment } from "./habits-card";
 import { ComplianceRow } from "./compliance-row";
@@ -30,7 +28,6 @@ type ClientDetailProps = {
   macros: any;
   notes: any[];
   intake: Intake | null;
-  photos: ProgressPhoto[];
   coachTasks: CoachTask[];
   habits: HabitAssignment[];
   recentWorkoutCount: number;
@@ -58,7 +55,6 @@ export function ClientDetail({
   macros,
   notes,
   intake,
-  photos,
   coachTasks,
   habits,
   recentWorkoutCount,
@@ -163,17 +159,7 @@ export function ClientDetail({
         </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="summary">
-        <TabsList>
-          <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="programs">Programs</TabsTrigger>
-          <TabsTrigger value="progress">Progress</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
-        </TabsList>
-
-        {/* SUMMARY */}
-        <TabsContent value="summary" className="space-y-6 pt-4">
+      <div className="space-y-6">
           <ComplianceRow programs={programs} workouts={workouts} />
 
           {/* Slim stat strip — matches dashboard pattern */}
@@ -381,121 +367,7 @@ export function ClientDetail({
               </div>
             )}
           </section>
-        </TabsContent>
-
-        {/* PROGRAMS */}
-        <TabsContent value="programs" className="space-y-3 pt-4">
-          <Button variant="outline" onClick={() => router.push("/programs")}>
-            <Plus className="mr-2 h-4 w-4" /> Create new program
-          </Button>
-          {programs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No programs assigned yet.</p>
-          ) : (
-            programs.map((prog: any) => (
-              <Card
-                key={prog.id}
-                className="flex cursor-pointer flex-row items-center justify-between p-4 transition-colors hover:bg-muted/40"
-                onClick={() => router.push(`/programs/${prog.id}`)}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium">{prog.name}</p>
-                    <Badge variant={prog.status === "active" ? "default" : "secondary"}>
-                      {prog.status}
-                    </Badge>
-                  </div>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {pluralize(prog.program_phases?.length ?? 0, "phase")} · Created{" "}
-                    {new Date(prog.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Card>
-            ))
-          )}
-        </TabsContent>
-
-        {/* PROGRESS */}
-        <TabsContent value="progress" className="space-y-6 pt-4">
-          <section>
-            <h3 className="mb-2 text-sm font-semibold tracking-tight">Weight history</h3>
-            {bodyStats.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No body stats logged yet.</p>
-            ) : (
-              <div className="rounded-xl border border-border bg-card">
-                {bodyStats.slice(0, 10).map((stat: any, i: number) => (
-                  <div
-                    key={stat.id}
-                    className={cn(
-                      "flex items-center justify-between px-4 py-2.5",
-                      i !== Math.min(9, bodyStats.length - 1) && "border-b border-border"
-                    )}
-                  >
-                    <span className="text-sm text-muted-foreground">
-                      {new Date(stat.date).toLocaleDateString()}
-                    </span>
-                    <div className="flex gap-4 tabular-nums">
-                      {stat.weight_kg && (
-                        <span className="text-sm font-medium">
-                          {(stat.weight_kg * 2.205).toFixed(1)} lbs
-                        </span>
-                      )}
-                      {stat.body_fat_pct && (
-                        <span className="text-sm text-muted-foreground">
-                          {stat.body_fat_pct}% BF
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <h3 className="mb-2 text-sm font-semibold tracking-tight">Workout history</h3>
-            {workouts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No workouts logged yet.</p>
-            ) : (
-              <div className="rounded-xl border border-border bg-card">
-                {workouts.slice(0, 10).map((w: any, i: number) => (
-                  <div
-                    key={w.id}
-                    className={cn(
-                      "flex items-center justify-between px-4 py-2.5",
-                      i !== Math.min(9, workouts.length - 1) && "border-b border-border"
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {w.title || "Workout"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(w.started_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {w.ended_at && (
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {Math.round(
-                          (new Date(w.ended_at).getTime() -
-                            new Date(w.started_at).getTime()) /
-                            60000
-                        )}
-                        {" min"}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </TabsContent>
-
-        {/* PHOTOS */}
-        <TabsContent value="photos" className="space-y-6 pt-4">
-          <PhotosTimeline photos={photos} />
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }
