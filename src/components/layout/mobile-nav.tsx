@@ -31,9 +31,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 interface MobileNavProps {
   open: boolean;
   onClose: () => void;
+  /** href → badge count. Renders a small chip on matching nav items. */
+  badges?: Record<string, number>;
 }
 
-export function MobileNav({ open, onClose }: MobileNavProps) {
+export function MobileNav({ open, onClose, badges = {} }: MobileNavProps) {
   const pathname = usePathname();
 
   return (
@@ -49,6 +51,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           {NAV_ITEMS.map((item) => {
             const Icon = iconMap[item.icon];
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const badge = badges[item.href];
+            const hasBadge = typeof badge === "number" && badge > 0;
 
             return (
               <Link
@@ -63,7 +67,12 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                 )}
               >
                 {Icon && <Icon className="h-5 w-5 shrink-0" />}
-                <span>{item.title}</span>
+                <span className="flex-1">{item.title}</span>
+                {hasBadge && (
+                  <span className="rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-background">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
               </Link>
             );
           })}
