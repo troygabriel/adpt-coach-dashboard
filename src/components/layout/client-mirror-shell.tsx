@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { ClientContextSidebar } from "./client-context-sidebar";
+import { MessageNotifier } from "@/components/messages/message-notifier";
 import { cn } from "@/lib/utils";
 
 export function ClientMirrorShell({
+  coachId,
   clientId,
   clientName,
   children,
 }: {
+  coachId: string;
   clientId: string;
   clientName: string | null;
   children: React.ReactNode;
@@ -17,6 +20,7 @@ export function ClientMirrorShell({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <MessageNotifier coachId={coachId} />
       <div className="hidden lg:block">
         <ClientContextSidebar
           collapsed={collapsed}

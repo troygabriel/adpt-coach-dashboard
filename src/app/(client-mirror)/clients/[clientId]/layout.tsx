@@ -43,6 +43,7 @@ export default async function ClientMirrorLayout({
 
   return (
     <ClientMirrorShell
+      coachId={user.id}
       clientId={clientId}
       clientName={clientProfile?.first_name ?? null}
     >
