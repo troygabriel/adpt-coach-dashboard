@@ -83,6 +83,8 @@ type Program = {
   description: string | null;
   status: string;
   client_id: string;
+  unpublished_changes: boolean;
+  last_published_at: string | null;
   profiles: { id: string; first_name: string | null } | null;
   program_phases: Phase[];
 };
@@ -336,6 +338,22 @@ export function ProgramBuilder({ program }: { program: Program }) {
     router.refresh();
   }, [program.id, router, supabase]);
 
+  const publishChanges = useCallback(async () => {
+    const { error } = await supabase
+      .from("coaching_programs")
+      .update({
+        unpublished_changes: false,
+        last_published_at: new Date().toISOString(),
+      })
+      .eq("id", program.id);
+    if (error) {
+      toast.error("Couldn't publish", { description: error.message });
+      return;
+    }
+    toast.success("Changes published");
+    router.refresh();
+  }, [program.id, router, supabase]);
+
   const phaseActions = (phase: Phase): RowAction[] => [
     {
       id: "duplicate",
@@ -380,6 +398,11 @@ export function ProgramBuilder({ program }: { program: Program }) {
             >
               {program.status}
             </Badge>
+            {program.status === "active" && program.unpublished_changes && (
+              <Badge variant="outline" className="border-foreground/30">
+                Unpublished changes
+              </Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             for{" "}
@@ -387,11 +410,25 @@ export function ProgramBuilder({ program }: { program: Program }) {
               {program.profiles?.first_name || "Unassigned"}
             </span>{" "}
             · {pluralize(phases.length, "phase")}
+            {program.last_published_at && (
+              <>
+                {" · last published "}
+                {new Date(program.last_published_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })}
+              </>
+            )}
           </p>
         </div>
         {program.status === "draft" && (
           <Button onClick={activateProgram} disabled={phases.length === 0}>
             <Play aria-hidden="true" className="mr-2 h-4 w-4" /> Activate
+          </Button>
+        )}
+        {program.status === "active" && program.unpublished_changes && (
+          <Button onClick={publishChanges}>
+            Publish changes
           </Button>
         )}
         {program.status === "active" && (

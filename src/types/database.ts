@@ -639,9 +639,11 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          last_published_at: string | null
           name: string
           start_date: string | null
           status: string
+          unpublished_changes: boolean
           updated_at: string
         }
         Insert: {
@@ -651,9 +653,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          last_published_at?: string | null
           name: string
           start_date?: string | null
           status?: string
+          unpublished_changes?: boolean
           updated_at?: string
         }
         Update: {
@@ -663,9 +667,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          last_published_at?: string | null
           name?: string
           start_date?: string | null
           status?: string
+          unpublished_changes?: boolean
           updated_at?: string
         }
         Relationships: [
