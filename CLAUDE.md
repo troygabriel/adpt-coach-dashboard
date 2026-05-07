@@ -38,7 +38,11 @@ There is **no consumer self-service mode**. Onboarding for clients is invitation
 ### Supabase project (shared)
 - Migrations live in **`~/troyg/Projects/ADPT/supabase/migrations/`** — that is the **single source of truth** for the schema. The dashboard repo's `supabase/` folder is for dashboard-specific scripts/seeds, not schema.
 - Never modify the hosted schema directly. Every change is a new migration in the mobile repo.
-- Generated types: `~/troyg/Projects/ADPT/types/database.ts`. Re-generate with `supabase gen types typescript --linked > types/database.ts`. Wire-up to `createClient<Database>()` is deferred (see Sprint 2 in `AUDIT.md`); until then, expect un-typed `.from()` calls in both repos.
+- Generated types: canonical at `~/troyg/Projects/ADPT/types/database.ts`; dashboard mirror at `src/types/database.ts`. Re-generate with `supabase gen types typescript --linked > types/database.ts` from the mobile repo, then `cp` into `adpt-coach-dashboard/src/types/database.ts`. **Dashboard `createClient<Database>()` is wired (2026-05-06).** Mobile wire-up still pending.
+- **Schema drift discovered 2026-05-06** while wiring types — flagged with `// TODO(schema-drift):` comments. App-side types in `src/types/index.ts` describe columns that don't exist in the live DB:
+  - `coach_notes` — app expects `category`/`title`/`content`/`is_pinned`/`updated_at`; DB has only `body`. Notes CRUD is broken in prod (writes silently 400). Cleanup PR needed: either migrate the table or rewrite the panel.
+  - `body_stats` — app expects `measurements: Record<string, number>`; DB has individual `*_cm` columns. Weight-trend chart shows `—` for every measurement row.
+  - `habit_assignments` — app expects `target_count`/`is_active`; DB has `target_value`/`active`. Inserts/updates corrected at the call sites; reads still need the app type updated.
 
 ---
 

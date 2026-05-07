@@ -150,7 +150,7 @@ export function ProgramBuilder({ program }: { program: Program }) {
         .select("*")
         .single();
       router.refresh();
-      if (data) setEditingWorkout(data as PhaseWorkout);
+      if (data) setEditingWorkout(data as unknown as PhaseWorkout);
     },
     [phases, router, supabase]
   );
@@ -172,7 +172,7 @@ export function ProgramBuilder({ program }: { program: Program }) {
         return;
       }
       router.refresh();
-      if (data) setEditingWorkout(data as PhaseWorkout);
+      if (data) setEditingWorkout(data as unknown as PhaseWorkout);
     },
     [router, supabase]
   );

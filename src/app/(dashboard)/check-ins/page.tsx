@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CheckInQueue } from "@/components/check-ins/check-in-queue";
-import type { CheckInWithClient } from "@/types";
+import type {
+  BodyStat,
+  CheckInWithClient,
+  CoachNote,
+  HabitWithLogs,
+} from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +70,9 @@ export default async function CheckInsPage() {
 
       <CheckInQueue
         checkIns={(checkInsWithProfiles as CheckInWithClient[]) || []}
-        bodyStats={bodyStats || []}
-        coachNotes={coachNotes || []}
-        habits={habits || []}
+        bodyStats={(bodyStats as unknown as BodyStat[]) || []}
+        coachNotes={(coachNotes as unknown as CoachNote[]) || []}
+        habits={(habits as unknown as HabitWithLogs[]) || []}
         coachId={user.id}
       />
     </div>
