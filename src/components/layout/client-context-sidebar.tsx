@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
+  CalendarClock,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +37,7 @@ type SubPage = {
 const SUB_PAGES: SubPage[] = [
   { key: "dashboard", title: "Dashboard", icon: LayoutDashboard, segment: "" },
   { key: "calendar", title: "Calendar", icon: Calendar, segment: "calendar" },
+  { key: "schedule", title: "Schedule", icon: CalendarClock, segment: "schedule" },
   { key: "habits", title: "Goals & habits", icon: ListChecks, segment: "habits" },
   { key: "program", title: "Training program", icon: Dumbbell, segment: "training-program" },
   { key: "meals", title: "Meal plan", icon: UtensilsCrossed, segment: "meals" },

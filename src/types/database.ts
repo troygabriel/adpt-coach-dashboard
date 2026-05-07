@@ -1174,6 +1174,54 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_workouts: {
+        Row: {
+          id: string
+          client_id: string
+          coach_id: string
+          scheduled_date: string
+          source_type: "phase_workout" | "template" | "rest"
+          phase_workout_id: string | null
+          template_id: string | null
+          override_payload: Json | null
+          completed: boolean
+          completed_session_id: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          coach_id: string
+          scheduled_date: string
+          source_type: "phase_workout" | "template" | "rest"
+          phase_workout_id?: string | null
+          template_id?: string | null
+          override_payload?: Json | null
+          completed?: boolean
+          completed_session_id?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          coach_id?: string
+          scheduled_date?: string
+          source_type?: "phase_workout" | "template" | "rest"
+          phase_workout_id?: string | null
+          template_id?: string | null
+          override_payload?: Json | null
+          completed?: boolean
+          completed_session_id?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           client_id: string
