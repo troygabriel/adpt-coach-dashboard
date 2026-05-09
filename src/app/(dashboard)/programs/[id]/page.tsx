@@ -14,6 +14,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     .from("coaching_programs")
     .select(`
       id, coach_id, client_id, name, description, status, start_date, end_date,
+      unpublished_changes, last_published_at,
       program_phases (
         id, name, description, phase_number, duration_weeks, goal, status,
         phase_workouts (id, day_number, name, exercises, duration_minutes, notes)

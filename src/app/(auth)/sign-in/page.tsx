@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +30,11 @@ export default function SignInPage() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation so the freshly-set auth cookie is read by the
+    // server-side middleware on the next request. router.push does a
+    // soft nav and the middleware can race the cookie write — symptom
+    // is "I sign in successfully but get bounced back to /sign-in."
+    window.location.href = "/dashboard";
   }
 
   return (

@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, MoreHorizontal, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Archive,
+  ArchiveRestore,
+  MessageSquare,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActions, type RowAction } from "@/components/patterns/row-actions";
 import { cn, formatCurrency, formatRelativeDate, getStatusColor } from "@/lib/utils";
 import { InviteClientDialog } from "./invite-client-dialog";
 import type { ClientWithProfile } from "@/types";
@@ -35,6 +39,89 @@ export function ClientTable({ clients }: ClientTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  const setStatus = async (
+    client: ClientWithProfile,
+    next: "active" | "archived" | "paused",
+  ) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("coach_clients")
+      .update({ status: next })
+      .eq("id", client.id);
+    if (error) {
+      toast.error("Couldn't update", { description: error.message });
+      return;
+    }
+    toast.success(
+      next === "archived"
+        ? `${client.profiles?.first_name ?? "Client"} archived`
+        : next === "active"
+          ? `${client.profiles?.first_name ?? "Client"} restored`
+          : "Updated",
+    );
+    router.refresh();
+  };
+
+  const deleteClient = async (client: ClientWithProfile) => {
+    const supabase = createClient();
+    // Delete the relationship row, not the underlying profile — profiles
+    // can be referenced by other coach_clients rows in a multi-coach future.
+    const { error } = await supabase
+      .from("coach_clients")
+      .delete()
+      .eq("id", client.id);
+    if (error) {
+      toast.error("Couldn't delete", { description: error.message });
+      return;
+    }
+    toast.success(`Removed ${client.profiles?.first_name ?? "client"}`);
+    router.refresh();
+  };
+
+  const rowActions = (client: ClientWithProfile): RowAction[] => {
+    const isArchived = client.status === "archived";
+    return [
+      {
+        id: "message",
+        label: "Message",
+        icon: MessageSquare,
+        onSelect: () => router.push(`/messages?client=${client.client_id}`),
+      },
+      isArchived
+        ? {
+            id: "restore",
+            label: "Restore to active",
+            icon: ArchiveRestore,
+            onSelect: () => setStatus(client, "active"),
+          }
+        : {
+            id: "archive",
+            label: "Archive",
+            icon: Archive,
+            onSelect: () => setStatus(client, "archived"),
+            confirm: {
+              title: `Archive ${client.profiles?.first_name ?? "this client"}?`,
+              description:
+                "They'll move to the Archived tab and stop appearing in your roster, but their data is preserved.",
+              actionLabel: "Archive",
+            },
+          },
+      {
+        id: "delete",
+        label: "Delete",
+        icon: Trash2,
+        destructive: true,
+        onSelect: () => deleteClient(client),
+        confirm: {
+          title: `Delete ${client.profiles?.first_name ?? "this client"}?`,
+          description:
+            "This removes the coaching relationship. Their profile, workouts, and check-ins are retained but you'll lose access. Use Archive if you might come back.",
+          actionLabel: "Delete relationship",
+        },
+      },
+    ];
+  };
 
   const filtered = clients.filter((c) => {
     const name = c.profiles?.first_name?.toLowerCase() || "";
@@ -170,35 +257,10 @@ export function ClientTable({ clients }: ClientTableProps) {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Client options</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="bg-card border-border"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/messages?client=${client.client_id}`);
-                            }}
-                          >
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                            Message
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <RowActions
+                        actions={rowActions(client)}
+                        ariaLabel="Client options"
+                      />
                     </TableCell>
                   </TableRow>
                 );

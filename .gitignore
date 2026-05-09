@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# scratch / one-off scripts
+/tmp/
+
 # next.js
 /.next/
 /out/

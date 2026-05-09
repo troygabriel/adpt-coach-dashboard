@@ -19,8 +19,13 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     const supabase = createClient();
+    // Prefer the explicit env-configured app URL so the redirectTo matches
+    // exactly what the Supabase project has whitelisted under Auth → URL
+    // Configuration → Redirect URLs. Fall back to the current origin in
+    // case the env isn't set in dev.
     const appUrl =
-      typeof window !== "undefined" ? window.location.origin : "";
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (typeof window !== "undefined" ? window.location.origin : "");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${appUrl}/reset-password`,
     });

@@ -16,6 +16,58 @@ import { IntakeCard, type Intake } from "./intake-card";
 import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
 import { HabitsCard, type HabitAssignment } from "./habits-card";
 import { ComplianceRow } from "./compliance-row";
+import { ClientHomeMirror } from "./client-home-mirror";
+import { ClientActivityRail } from "./client-activity-rail";
+
+type ScheduledRow = {
+  id: string;
+  client_id: string;
+  coach_id: string;
+  scheduled_date: string;
+  source_type: "phase_workout" | "template" | "rest";
+  phase_workout_id: string | null;
+  template_id: string | null;
+  notes: string | null;
+  completed: boolean;
+};
+
+type PhaseWorkoutLite = {
+  id: string;
+  name: string;
+  day_number: number;
+  exercises: unknown;
+  /** Optional context — populated by the page-level fetch when phase metadata
+   * is available so the home mirror can show "Phase 1 · Day 2". */
+  phase_id?: string;
+  phase_name?: string;
+  phase_number?: number;
+};
+
+type PhotoRow = {
+  id: string;
+  created_at: string;
+  pose: string | null;
+};
+
+type MessageRow = {
+  id: string;
+  created_at: string;
+  content: string;
+  sender_id: string;
+};
+
+type HabitLog = {
+  assignment_id: string;
+  date: string;
+  completed: boolean;
+};
+
+type WorkoutSessionLite = {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  title: string | null;
+};
 
 type ClientDetailProps = {
   coachId: string;
@@ -30,7 +82,15 @@ type ClientDetailProps = {
   intake: Intake | null;
   coachTasks: CoachTask[];
   habits: HabitAssignment[];
+  scheduled: ScheduledRow[];
+  phaseWorkouts: PhaseWorkoutLite[];
+  programDays: { day_number: number }[];
+  habitLogs: HabitLog[];
+  todaySession: WorkoutSessionLite | null;
+  activeProgramId: string | null;
   recentWorkoutCount: number;
+  photos: PhotoRow[];
+  recentMessages: MessageRow[];
 };
 
 function getInitials(name: string | null | undefined) {
@@ -57,7 +117,15 @@ export function ClientDetail({
   intake,
   coachTasks,
   habits,
+  scheduled,
+  phaseWorkouts,
+  programDays,
+  habitLogs,
+  todaySession,
+  activeProgramId,
   recentWorkoutCount,
+  photos,
+  recentMessages,
 }: ClientDetailProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -121,9 +189,20 @@ export function ClientDetail({
   const totalWorkouts = workouts?.length ?? 0;
   const activeProgram = programs.find((p: any) => p.status === "active");
 
+  // Map page-level workout list to the rail's input shape. Body stats and
+  // workouts already come from page; we just slice the most recent for
+  // display.
+  const ratlWeighIns = (bodyStats ?? []).slice(0, 10).map((s: any) => ({
+    date: s.date,
+    created_at: s.created_at ?? s.date,
+    weight_kg: s.weight_kg,
+    body_fat_pct: s.body_fat_pct,
+  }));
+  const railWorkouts = (workouts ?? []).slice(0, 10);
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header — sidebar provides Return to overview, no back button needed here */}
+    <div className="mx-auto max-w-7xl space-y-6">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <Avatar className="h-12 w-12 shrink-0">
@@ -159,8 +238,45 @@ export function ClientDetail({
         </Button>
       </div>
 
+      {/* Top: Trainerize-style two-column — main mirror left, activity rail right */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <ClientHomeMirror
+          clientId={clientId}
+          clientName={profile?.first_name ?? null}
+          scheduled={scheduled}
+          phaseWorkouts={phaseWorkouts.map((w) => ({
+            id: w.id,
+            name: w.name,
+            day_number: w.day_number,
+            exercise_count: Array.isArray(w.exercises) ? w.exercises.length : 0,
+            phase_id: w.phase_id ?? "",
+            phase_name: w.phase_name ?? "",
+            phase_number: w.phase_number ?? 0,
+            exercises: Array.isArray(w.exercises) ? (w.exercises as { name: string; sets?: number | null; reps?: string | number | null; rir?: number | null }[]) : [],
+          }))}
+          habits={habits}
+          habitLogs={habitLogs}
+          coachTasks={coachTasks}
+          macros={macros}
+          programId={activeProgramId}
+          recentWorkouts={workouts}
+          bodyStats={bodyStats}
+        />
+        <ClientActivityRail
+          clientId={clientId}
+          workouts={railWorkouts}
+          weighIns={ratlWeighIns}
+          photos={photos}
+          messages={recentMessages}
+        />
+      </div>
+
       <div className="space-y-6">
-          <ComplianceRow programs={programs} workouts={workouts} />
+          <ComplianceRow
+            scheduled={scheduled}
+            workouts={workouts}
+            programDays={programDays}
+          />
 
           {/* Slim stat strip — matches dashboard pattern */}
           <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">

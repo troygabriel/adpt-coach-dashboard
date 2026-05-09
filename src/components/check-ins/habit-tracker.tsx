@@ -38,13 +38,15 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
     setSaving(true);
     const supabase = createClient();
 
+    // TODO(schema-drift): DB columns are `target_value`/`active`, not
+    // `target_count`/`is_active`. Mapping here so the insert actually works.
     await supabase.from("habit_assignments").insert({
       coach_id: coachId,
       client_id: clientId,
       name: newHabit.trim(),
       frequency,
-      target_count: targetCount,
-      is_active: true,
+      target_value: targetCount,
+      active: true,
     });
 
     setNewHabit("");
@@ -55,9 +57,10 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
 
   const handleDeactivate = async (habitId: string) => {
     const supabase = createClient();
+    // TODO(schema-drift): real column is `active`, not `is_active`.
     await supabase
       .from("habit_assignments")
-      .update({ is_active: false })
+      .update({ active: false })
       .eq("id", habitId);
     router.refresh();
   };

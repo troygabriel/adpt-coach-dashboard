@@ -48,9 +48,10 @@ export default async function ProgramsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Programs</h1>
+          <h1 className="text-2xl font-bold">Program library</h1>
           <p className="text-sm text-muted-foreground">
-            Build and assign training programs to your clients.
+            Templates you&apos;ve built. Duplicate one to as many clients as
+            you want. Per-client edits live on each client&apos;s page.
           </p>
         </div>
       </div>

@@ -1,7 +1,15 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Settings2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { CheckInQueue } from "@/components/check-ins/check-in-queue";
-import type { CheckInWithClient } from "@/types";
+import type {
+  BodyStat,
+  CheckInWithClient,
+  CoachNote,
+  HabitWithLogs,
+} from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,18 +64,26 @@ export default async function CheckInsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Check-ins</h1>
-        <p className="text-muted-foreground">
-          Review client progress, leave feedback, and manage everything in one place.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Check-ins</h1>
+          <p className="text-muted-foreground">
+            Review client progress, leave feedback, and manage everything in one place.
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/check-ins/templates">
+            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+            Templates
+          </Link>
+        </Button>
       </div>
 
       <CheckInQueue
         checkIns={(checkInsWithProfiles as CheckInWithClient[]) || []}
-        bodyStats={bodyStats || []}
-        coachNotes={coachNotes || []}
-        habits={habits || []}
+        bodyStats={(bodyStats as unknown as BodyStat[]) || []}
+        coachNotes={(coachNotes as unknown as CoachNote[]) || []}
+        habits={(habits as unknown as HabitWithLogs[]) || []}
         coachId={user.id}
       />
     </div>

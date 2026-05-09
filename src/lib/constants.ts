@@ -12,9 +12,10 @@ export const ROUTES = {
 } as const;
 
 // Order reflects daily-use frequency: triage first, admin last.
+// Check-ins is hidden from the sidebar but the route stays so it can be
+// reactivated later without code surgery.
 export const NAV_ITEMS = [
   { title: "Home", href: ROUTES.DASHBOARD, icon: "LayoutDashboard" },
-  { title: "Check-ins", href: ROUTES.CHECK_INS, icon: "ClipboardCheck" },
   { title: "Calendar", href: ROUTES.CALENDAR, icon: "Calendar" },
   { title: "Clients", href: ROUTES.CLIENTS, icon: "Users" },
   { title: "Programs", href: ROUTES.PROGRAMS, icon: "Dumbbell" },

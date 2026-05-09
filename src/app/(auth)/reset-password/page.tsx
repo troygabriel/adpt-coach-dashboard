@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +35,9 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // Hard nav so the cookie set by updateUser is read by middleware
+    // on the next request.
+    window.location.href = "/dashboard";
   }
 
   return (
