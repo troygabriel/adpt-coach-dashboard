@@ -48,11 +48,24 @@ export default async function InvitePage({
   if (invitation.status === "accepted") {
     return (
       <Shell>
-        <Card className="max-w-md space-y-2 p-8 text-center">
+        <Card className="max-w-md space-y-4 p-8 text-center">
           <h1 className="text-xl font-semibold">You&apos;re all set</h1>
           <p className="text-sm text-muted-foreground">
-            You&apos;re connected to {coachName}. Open the ADPT app on your phone to get
-            started — we&apos;ll email you when it&apos;s live.
+            You&apos;re connected to {coachName}. Install the ADPT app on
+            your phone to start training, log workouts, and message your
+            coach.
+          </p>
+          {/* TestFlight link — replace with App Store URL once live. */}
+          <a
+            href="https://testflight.apple.com/join/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90"
+          >
+            Install ADPT for iOS
+          </a>
+          <p className="text-xs text-muted-foreground">
+            Sign in with the same email and password you just set.
           </p>
         </Card>
       </Shell>
