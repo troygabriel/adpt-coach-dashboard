@@ -75,47 +75,50 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
 
     setSubmitting(true);
 
-    const { error: pwError } = await supabase.auth.updateUser({ password });
-    if (pwError) {
-      toast.error("Couldn't set password", { description: pwError.message });
-      setSubmitting(false);
-      return;
-    }
-
-    const { error: acceptError } = await supabase.rpc("accept_invitation", {
-      invitation_token: token,
+    // Single server call that handles BOTH paths:
+    //   - Email-link arrival: user is signed in via Supabase verify
+    //   - Manual-share arrival: user has no session at all
+    // The endpoint uses the service role to find-or-create the auth user,
+    // set the password, link to the coach, and persist intake — atomically
+    // from our POV. After it succeeds we sign in to establish a session.
+    const res = await fetch("/api/invite/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token,
+        password,
+        intake: {
+          date_of_birth: dob || null,
+          height_cm: heightCm ? parseInt(heightCm, 10) : null,
+          weight_kg: weightKg ? parseFloat(weightKg) : null,
+          primary_goal: goal,
+          experience_level: experience,
+          training_days_per_week: days,
+          equipment_access: equipment,
+          injuries: injuries.trim() || null,
+          dietary_notes: diet.trim() || null,
+        },
+      }),
     });
-    if (acceptError) {
-      toast.error("Couldn't connect to coach", { description: acceptError.message });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error("Couldn't finish setup", {
+        description: json.error ?? `HTTP ${res.status}`,
+      });
       setSubmitting(false);
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Session expired — please sign in again");
-      setSubmitting(false);
-      return;
-    }
-
-    const { error: intakeError } = await supabase.from("client_intakes").upsert({
-      client_id: user.id,
-      date_of_birth: dob || null,
-      height_cm: heightCm ? parseInt(heightCm, 10) : null,
-      weight_kg: weightKg ? parseFloat(weightKg) : null,
-      primary_goal: goal,
-      experience_level: experience,
-      training_days_per_week: days,
-      equipment_access: equipment,
-      injuries: injuries.trim() || null,
-      dietary_notes: diet.trim() || null,
+    // Sign in with the password we just set so the next page render has
+    // a valid session. Best-effort — even if it fails we've already linked
+    // the coach, so router.refresh will pick up the accepted state.
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
-    if (intakeError) {
-      toast.error("Couldn't save intake", { description: intakeError.message });
-      setSubmitting(false);
-      return;
+    if (signInErr) {
+      console.warn("[onboarding] auto sign-in failed", signInErr.message);
     }
 
     router.refresh();
@@ -134,7 +137,8 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
         <div>
           <h2 className="text-base font-medium">Set a password</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            You&apos;re signed in as <span className="font-mono">{email}</span>
+            We&apos;ll create your account under{" "}
+            <span className="font-mono">{email}</span>
           </p>
         </div>
         <div className="space-y-2">
