@@ -31,9 +31,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // All public auth-flow pages. Logged-out users must be able to reach
+  // every one of these, otherwise the "Forgot?" / sign-up / recovery
+  // flows bounce back to /sign-in in an infinite loop.
+  const path = request.nextUrl.pathname;
   const isAuthPage =
-    request.nextUrl.pathname.startsWith("/sign-in") ||
-    request.nextUrl.pathname.startsWith("/sign-up");
+    path.startsWith("/sign-in") ||
+    path.startsWith("/sign-up") ||
+    path.startsWith("/forgot-password") ||
+    path.startsWith("/reset-password") ||
+    path.startsWith("/invite/");
 
   // Unauthenticated users trying to access dashboard
   if (
