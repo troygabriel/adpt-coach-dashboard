@@ -17,13 +17,25 @@
  * coexist: OAuth providers and our own signUp flow use PKCE, while invite
  * + recovery emails generated server-side may use implicit. We accept
  * either by routing both arrival shapes here.
+ *
+ * Suspense wrapper: useSearchParams() forces the page out of static
+ * pre-rendering. Next 16 requires the consumer to sit inside a Suspense
+ * boundary or the build fails with "missing-suspense-with-csr-bailout".
  */
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<CallbackPlaceholder />}>
+      <CallbackInner />
+    </Suspense>
+  );
+}
+
+function CallbackInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +93,10 @@ export default function AuthCallbackPage() {
     );
   }
 
+  return <CallbackPlaceholder />;
+}
+
+function CallbackPlaceholder() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <p className="text-sm text-muted-foreground">Signing you in…</p>
