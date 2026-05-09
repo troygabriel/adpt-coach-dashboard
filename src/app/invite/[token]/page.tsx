@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { ClientOnboardingForm } from "@/components/onboarding/client-onboarding-form";
-import { SignInLinkForm } from "@/components/onboarding/sign-in-link-form";
 
 export const dynamic = "force-dynamic";
 
@@ -72,21 +71,11 @@ export default async function InvitePage({
     );
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const emailMatches =
-    user?.email?.toLowerCase() === invitation.email.toLowerCase();
-
-  if (!user || !emailMatches) {
-    return (
-      <Shell>
-        <SignInLinkForm email={invitation.email} token={token} />
-      </Shell>
-    );
-  }
-
+  // Onboarding form works for both arrival paths:
+  //  - Email link: Supabase verify → /auth/callback → here, user already signed in
+  //  - Manual share: coach pasted the URL into a chat, no session at all
+  // Both submit to /api/invite/complete which handles the find-or-create
+  // auth user via service role. Auth state on this page is irrelevant.
   return (
     <Shell>
       <div className="w-full max-w-xl">
