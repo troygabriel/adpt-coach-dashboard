@@ -256,7 +256,10 @@ export function ClientTable({ clients }: ClientTableProps) {
                         ? formatRelativeDate(client.started_at)
                         : "-"}
                     </TableCell>
-                    <TableCell>
+                    {/* Stop click propagation so the confirm-dialog "Delete"
+                        button doesn't bubble up to the row's onClick (which
+                        would push to /clients/<deleted-client>, 404). */}
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <RowActions
                         actions={rowActions(client)}
                         ariaLabel="Client options"
