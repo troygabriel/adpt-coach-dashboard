@@ -43,20 +43,27 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/invite/") ||
     path.startsWith("/auth/callback");
 
-  // Unauthenticated users trying to access dashboard
-  if (
-    !user &&
-    !isAuthPage &&
-    !request.nextUrl.pathname.startsWith("/api/auth") &&
-    request.nextUrl.pathname !== "/"
-  ) {
+  // API routes that must be reachable without a session. /api/invite/complete
+  // is the find-or-create-user endpoint that handles the manual-share
+  // onboarding path — it's literally for users who DON'T have a session
+  // yet. Doing its own token validation, so safe to expose anon.
+  const isPublicApi =
+    path.startsWith("/api/auth") || path.startsWith("/api/invite/");
+
+  // Unauthenticated users trying to access the dashboard
+  if (!user && !isAuthPage && !isPublicApi && path !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     return NextResponse.redirect(url);
   }
 
-  // Authenticated users on auth pages
-  if (user && isAuthPage) {
+  // Authenticated users on auth pages — bounce them to the dashboard
+  // EXCEPT /invite/<token> and /auth/callback, which are completion flows
+  // a logged-in user might land on (e.g. the coach testing a client invite,
+  // or a recovery link). Otherwise they'd be redirected away mid-flow.
+  const isCompletionFlow =
+    path.startsWith("/invite/") || path.startsWith("/auth/callback");
+  if (user && isAuthPage && !isCompletionFlow) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
