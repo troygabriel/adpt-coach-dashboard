@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeft,
   CalendarClock,
   Calendar,
   ChevronLeft,
@@ -179,18 +178,9 @@ export function ClientContextSidebar({
           })}
         </nav>
 
-        {/* Footer: Return to overview + collapse */}
-        <div className="space-y-1 border-t border-sidebar-border p-3">
-          <Link
-            href="/clients"
-            className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            <ArrowLeft aria-hidden="true" className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Return to overview</span>}
-          </Link>
+        {/* Footer: collapse only — return-to-overview lives in the
+            top breadcrumb on the main column now (more discoverable). */}
+        <div className="border-t border-sidebar-border p-3">
           <Button
             variant="ghost"
             size="sm"

@@ -1,21 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 
+/**
+ * The DB does the work: handle_new_user(auth.users) → creates profiles
+ * with role from raw_user_meta_data. handle_coach_role(profiles) → creates
+ * the coaches row when role='coach'. Both fire as SECURITY DEFINER triggers,
+ * so we don't need (and can't) manually update those tables under the anon
+ * key during signup — the user has no session yet when email confirmation
+ * is on, and the manual writes race the triggers when it's off.
+ */
 export default function SignUpPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,57 +31,68 @@ export default function SignUpPage() {
 
     const supabase = createClient();
 
-    // 1. Create auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        // first_name + role get picked up by the handle_new_user trigger.
+        // business_name lives only on `coaches`; we stash it in metadata
+        // so a follow-up edit pass after sign-in can persist it cleanly.
         data: {
-          display_name: displayName,
+          first_name: displayName,
           role: "coach",
+          business_name: businessName || null,
         },
       },
     });
 
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
+    setLoading(false);
+
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
 
-    if (!authData.user) {
-      setError("Failed to create account");
-      setLoading(false);
+    if (!data.user) {
+      setError("Couldn't create account. Try again.");
       return;
     }
 
-    // 2. Set profile role to coach
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ role: "coach", first_name: displayName })
-      .eq("id", authData.user.id);
-
-    if (profileError) {
-      console.error("Profile update error:", profileError);
-    }
-
-    // 3. Create coach row
-    const { error: coachError } = await supabase.from("coaches").insert({
-      id: authData.user.id,
-      display_name: displayName,
-      business_name: businessName || null,
-      is_accepting_clients: true,
-    });
-
-    if (coachError) {
-      console.error("Coach creation error:", coachError);
-      setError("Account created but coach profile setup failed. Please contact support.");
-      setLoading(false);
+    if (data.session) {
+      // Email confirmation is off → user is signed in immediately. Use a
+      // hard navigation so the freshly-set auth cookie is read by the
+      // middleware on the next request (router.push uses stale state).
+      window.location.href = "/dashboard";
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // Email confirmation is on → no session yet. Show "check inbox" UI;
+    // the user will land on /api/auth/callback after clicking the email
+    // link, which exchanges the code for a session.
+    setEmailSent(true);
+  }
+
+  if (emailSent) {
+    return (
+      <Card className="border-border bg-card">
+        <CardContent className="space-y-2 pt-6 text-center">
+          <h2 className="text-lg font-semibold">Check your inbox</h2>
+          <p className="text-sm text-muted-foreground">
+            We sent a confirmation link to{" "}
+            <span className="font-mono">{email}</span>. Click it to finish
+            setting up your coach account.
+          </p>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2">
+          <Link
+            href="/sign-in"
+            className="w-full text-center text-sm text-muted-foreground hover:underline"
+          >
+            Back to sign in
+          </Link>
+        </CardFooter>
+      </Card>
+    );
   }
 
   return (
@@ -138,9 +156,7 @@ export default function SignUpPage() {
               className="bg-input border-border"
             />
           </div>
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button

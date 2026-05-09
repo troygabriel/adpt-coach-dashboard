@@ -7,6 +7,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Coffee,
+  Dumbbell,
+  ListChecks,
   Scale,
   UtensilsCrossed,
   type LucideIcon,
@@ -92,6 +95,16 @@ export function CalendarMonth({
   hideClientFilter = false,
   /** Override the URL the prev/next buttons navigate to. Defaults to /calendar. */
   basePath = "/calendar",
+  /** Dates (YYYY-MM-DD) where the client logged a workout session. */
+  workoutDates,
+  /** Dates with a non-rest scheduled workout assigned. */
+  scheduledDates,
+  /** Dates explicitly marked as rest by the coach. */
+  restDates,
+  /** Dates where the client checked off at least one habit. */
+  habitDates,
+  /** Dates where the client logged body stats / weigh-in. */
+  weighInDates,
 }: {
   year: number;
   month: number;
@@ -100,6 +113,11 @@ export function CalendarMonth({
   clientFilter: string | null;
   hideClientFilter?: boolean;
   basePath?: string;
+  workoutDates?: Set<string>;
+  scheduledDates?: Set<string>;
+  restDates?: Set<string>;
+  habitDates?: Set<string>;
+  weighInDates?: Set<string>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -229,6 +247,11 @@ export function CalendarMonth({
           const inMonth = d.getMonth() === month;
           const isToday = iso === todayIso;
           const cellTasks = tasksByDate.get(iso) ?? [];
+          const didWorkout = !!workoutDates?.has(iso);
+          const hasScheduled = !!scheduledDates?.has(iso);
+          const isRest = !!restDates?.has(iso);
+          const didHabit = !!habitDates?.has(iso);
+          const didWeighIn = !!weighInDates?.has(iso);
           return (
             <div
               key={i}
@@ -238,18 +261,49 @@ export function CalendarMonth({
                 i % 7 === 6 && "border-r-0"
               )}
             >
-              <div
-                className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded text-xs tabular-nums",
-                  isToday
-                    ? "bg-foreground text-background font-semibold"
-                    : inMonth
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                {d.getDate()}
+              <div className="flex items-center justify-between">
+                <div
+                  className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded text-xs tabular-nums",
+                    isToday
+                      ? "bg-foreground text-background font-semibold"
+                      : inMonth
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                  )}
+                >
+                  {d.getDate()}
+                </div>
+                {/* Mobile-style activity dots — workout / habit / weigh-in */}
+                <div className="flex items-center gap-0.5">
+                  {didWorkout && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-foreground"
+                      title="Workout logged"
+                    />
+                  )}
+                  {!didWorkout && hasScheduled && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full border border-foreground/60"
+                      title="Workout scheduled"
+                    />
+                  )}
+                  {didHabit && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-foreground/40"
+                      title="Habit checked"
+                    />
+                  )}
+                  {didWeighIn && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-foreground/30"
+                      title="Weigh-in"
+                    />
+                  )}
+                </div>
               </div>
+
+              {/* Coach-scheduled task chips */}
               {cellTasks.length > 0 && (
                 <ul className="mt-1 space-y-0.5">
                   {cellTasks.slice(0, 3).map((t) => (
@@ -262,11 +316,63 @@ export function CalendarMonth({
                   )}
                 </ul>
               )}
+
+              {/* Rest day pill — mirrors mobile's calmer-than-workout treatment */}
+              {!cellTasks.length && isRest && inMonth && (
+                <div className="mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <Coffee aria-hidden="true" className="h-3 w-3" />
+                  Rest
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Legend — only shown when activity-dot props are provided */}
+      {(workoutDates || scheduledDates || restDates || habitDates || weighInDates) && (
+        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border px-5 py-3 text-[11px] text-muted-foreground">
+          <LegendDot
+            kind="solid"
+            label="Workout logged"
+            icon={Dumbbell}
+          />
+          <LegendDot kind="ring" label="Scheduled" icon={Dumbbell} />
+          <LegendDot kind="muted" label="Habit" icon={ListChecks} />
+          <LegendDot kind="dim" label="Weigh-in" icon={Scale} />
+          <span className="inline-flex items-center gap-1.5">
+            <Coffee aria-hidden="true" className="h-3 w-3" />
+            Rest day
+          </span>
+        </footer>
+      )}
     </section>
+  );
+}
+
+function LegendDot({
+  kind,
+  label,
+  icon: Icon,
+}: {
+  kind: "solid" | "ring" | "muted" | "dim";
+  label: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          kind === "solid" && "bg-foreground",
+          kind === "ring" && "border border-foreground/60",
+          kind === "muted" && "bg-foreground/40",
+          kind === "dim" && "bg-foreground/30"
+        )}
+      />
+      <Icon aria-hidden="true" className="h-3 w-3" />
+      {label}
+    </span>
   );
 }
 

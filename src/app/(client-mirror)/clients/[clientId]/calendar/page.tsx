@@ -48,28 +48,86 @@ export default async function ClientMirrorCalendarPage({
   gridStart.setDate(1 - firstOfMonth.getDay());
   const gridEnd = new Date(gridStart);
   gridEnd.setDate(gridStart.getDate() + 41);
+  const gridStartIso = isoDate(gridStart);
+  const gridEndIso = isoDate(gridEnd);
 
-  const [{ data: tasks }, { data: clientProfile }] = await Promise.all([
+  // Fire all month-window queries in parallel — five independent reads.
+  const [
+    { data: tasks },
+    { data: clientProfile },
+    { data: sessions },
+    { data: scheduled },
+    { data: stats },
+    { data: habits },
+  ] = await Promise.all([
     supabase
       .from("coach_tasks")
       .select("id, client_id, scheduled_for, task_type, title, manually_completed_at")
       .eq("coach_id", user.id)
       .eq("client_id", clientId)
-      .gte("scheduled_for", isoDate(gridStart))
-      .lte("scheduled_for", isoDate(gridEnd))
+      .gte("scheduled_for", gridStartIso)
+      .lte("scheduled_for", gridEndIso)
       .order("scheduled_for", { ascending: true }),
     supabase.from("profiles").select("first_name").eq("id", clientId).single(),
+    supabase
+      .from("workout_sessions")
+      .select("started_at")
+      .eq("user_id", clientId)
+      .gte("started_at", `${gridStartIso}T00:00:00`)
+      .lte("started_at", `${gridEndIso}T23:59:59`),
+    supabase
+      .from("scheduled_workouts")
+      .select("scheduled_date, source_type")
+      .eq("client_id", clientId)
+      .gte("scheduled_date", gridStartIso)
+      .lte("scheduled_date", gridEndIso),
+    supabase
+      .from("body_stats")
+      .select("date")
+      .eq("client_id", clientId)
+      .gte("date", gridStartIso)
+      .lte("date", gridEndIso),
+    // habit_logs needs assignment_id resolution by client + date range.
+    // Schema lookup is keyed by client_id directly per migration.
+    supabase
+      .from("habit_logs")
+      .select("date, completed")
+      .eq("client_id", clientId)
+      .eq("completed", true)
+      .gte("date", gridStartIso)
+      .lte("date", gridEndIso),
   ]);
 
   const clientName = clientProfile?.first_name ?? null;
+
+  const workoutDates = new Set(
+    (sessions ?? []).map((s) => s.started_at.slice(0, 10) as string),
+  );
+  const scheduledDates = new Set(
+    (scheduled ?? [])
+      .filter((s) => s.source_type !== "rest")
+      .map((s) => s.scheduled_date as string),
+  );
+  const restDates = new Set(
+    (scheduled ?? [])
+      .filter((s) => s.source_type === "rest")
+      .map((s) => s.scheduled_date as string),
+  );
+  const weighInDates = new Set(
+    (stats ?? []).map((s) => s.date as string),
+  );
+  const habitDates = new Set(
+    (habits ?? []).map((h) => h.date as string),
+  );
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
         <p className="text-sm text-muted-foreground">
-          Tasks scheduled for{" "}
-          <span className="text-foreground">{clientName ?? "this client"}</span>.
+          Mirrors what{" "}
+          <span className="text-foreground">{clientName ?? "this client"}</span>{" "}
+          sees in the mobile Calendar tab.
         </p>
       </div>
       <CalendarMonth
@@ -88,6 +146,11 @@ export default async function ClientMirrorCalendarPage({
         clientFilter={clientId}
         hideClientFilter
         basePath={`/clients/${clientId}/calendar`}
+        workoutDates={workoutDates}
+        scheduledDates={scheduledDates}
+        restDates={restDates}
+        habitDates={habitDates}
+        weighInDates={weighInDates}
       />
     </div>
   );
