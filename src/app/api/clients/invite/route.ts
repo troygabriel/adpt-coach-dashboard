@@ -91,7 +91,17 @@ export async function POST(request: Request) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const inviteUrl = `${appUrl}/invite/${invite.token}`;
+  // Final landing page — what the coach copies to share manually.
+  const landingUrl = `${appUrl}/invite/${invite.token}`;
+  // What we send to Supabase: must route through our /api/auth/callback so
+  // the SSR PKCE flow can exchange the verify ?code= for a session cookie
+  // on OUR domain. Sending Supabase straight to /invite/<token> drops the
+  // code on the floor and the user lands signed-out — falling back to a
+  // magic-link form that promptly rate-limits. This is THE fix for the
+  // "Confirm your email" loop on mobile.
+  const callbackUrl =
+    `${appUrl}/api/auth/callback?next=` +
+    encodeURIComponent(`/invite/${invite.token}`);
 
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,7 +109,7 @@ export async function POST(request: Request) {
   );
 
   const { error: emailError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: inviteUrl,
+    redirectTo: callbackUrl,
     data: {
       invite_token: invite.token,
       coach_id: coach.id,
@@ -110,7 +120,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     status: "invited",
-    invite_url: inviteUrl,
+    invite_url: landingUrl,
     expires_at: invite.expires_at,
     email_sent: !emailError,
     email_error: emailError?.message ?? null,
