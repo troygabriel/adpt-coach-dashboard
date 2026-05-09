@@ -93,14 +93,16 @@ export async function POST(request: Request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   // Final landing page — what the coach copies to share manually.
   const landingUrl = `${appUrl}/invite/${invite.token}`;
-  // What we send to Supabase: must route through our /api/auth/callback so
-  // the SSR PKCE flow can exchange the verify ?code= for a session cookie
-  // on OUR domain. Sending Supabase straight to /invite/<token> drops the
-  // code on the floor and the user lands signed-out — falling back to a
-  // magic-link form that promptly rate-limits. This is THE fix for the
-  // "Confirm your email" loop on mobile.
+  // What we send to Supabase: route through /auth/callback (the client-side
+  // page), NOT /api/auth/callback. Why: invite emails come back with the
+  // token in the URL **hash** (implicit flow). Hash fragments aren't sent
+  // to the server, so a route handler can't see them — the user lands
+  // signed-out. The /auth/callback PAGE runs the browser Supabase client
+  // which auto-processes the hash, sets the session cookie, then forwards
+  // to `next`. PKCE-flow links (`?code=`) get bounced over to the route
+  // handler from there.
   const callbackUrl =
-    `${appUrl}/api/auth/callback?next=` +
+    `${appUrl}/auth/callback?next=` +
     encodeURIComponent(`/invite/${invite.token}`);
 
   const admin = createAdminClient(
