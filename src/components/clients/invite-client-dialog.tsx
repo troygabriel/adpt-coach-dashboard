@@ -84,7 +84,10 @@ export function InviteClientDialog({ open, onClose }: InviteClientDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && reset()}>
-      <DialogContent className="sm:max-w-md">
+      {/* Wider than the default modal (md=448px) so the invite URL doesn't
+          truncate to a sliver — sm:max-w-2xl is 672px, comfortable for a
+          long signed token. */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {result
@@ -96,18 +99,28 @@ export function InviteClientDialog({ open, onClose }: InviteClientDialogProps) {
         </DialogHeader>
 
         {result ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <p className="text-sm text-muted-foreground">
               {result.email_sent
                 ? `We emailed ${email} a sign-up link. You can also share it directly:`
                 : `Send this link to ${email} however works best — text, WhatsApp, anywhere:`}
             </p>
-            <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-              <span className="flex-1 truncate text-xs font-mono">{result.invite_url}</span>
-              <Button size="sm" variant="ghost" onClick={handleCopy} className="h-7 w-7 p-0">
+            {/* Click anywhere in the URL row to copy. The textarea-style
+                wrap keeps the full URL visible without forcing the dialog
+                taller than it needs to be. */}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="group flex w-full items-start gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-left transition-colors hover:bg-muted/60"
+              aria-label="Copy invite link"
+            >
+              <span className="flex-1 break-all font-mono text-[13px] leading-relaxed text-foreground">
+                {result.invite_url}
+              </span>
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground group-hover:text-foreground">
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
+              </span>
+            </button>
             <p className="text-xs text-muted-foreground">
               Expires in 7 days. Set rate and notes on the client&apos;s detail page after they accept.
             </p>
