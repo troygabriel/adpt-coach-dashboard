@@ -12,11 +12,24 @@ export default async function InvitePage({
   const { token } = await params;
   const supabase = await createClient();
 
-  const { data: invitation } = await supabase
+  // full_name selected only after migration 20260510 lands. Cast through
+  // any until `npx supabase gen types` regenerates types/database.ts.
+  const { data: invitation } = (await supabase
     .from("client_invitations")
-    .select("id, email, status, expires_at, coach_id")
+    .select("id, email, status, expires_at, coach_id, full_name")
     .eq("token", token)
-    .maybeSingle();
+    .maybeSingle()) as {
+    data:
+      | {
+          id: string;
+          email: string;
+          status: string;
+          expires_at: string;
+          coach_id: string;
+          full_name: string | null;
+        }
+      | null;
+  };
 
   const expired =
     !invitation ||
@@ -83,6 +96,7 @@ export default async function InvitePage({
           token={token}
           email={invitation.email}
           coachName={coachName}
+          invitedName={(invitation as { full_name?: string | null }).full_name ?? null}
         />
       </div>
     </Shell>
@@ -91,7 +105,7 @@ export default async function InvitePage({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background p-6 sm:p-12">
+    <div className="flex min-h-screen min-h-dvh items-start justify-center bg-background p-6 sm:p-12">
       {children}
     </div>
   );

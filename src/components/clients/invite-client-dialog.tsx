@@ -86,7 +86,13 @@ export function InviteClientDialog({ open, onClose }: InviteClientDialogProps) {
     <Dialog open={open} onOpenChange={(o) => !o && reset()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{result ? "Invite sent" : "Invite client"}</DialogTitle>
+          <DialogTitle>
+            {result
+              ? result.email_sent
+                ? "Invite emailed"
+                : "Invite ready to share"
+              : "Invite client"}
+          </DialogTitle>
         </DialogHeader>
 
         {result ? (
@@ -94,7 +100,7 @@ export function InviteClientDialog({ open, onClose }: InviteClientDialogProps) {
             <p className="text-sm text-muted-foreground">
               {result.email_sent
                 ? `We emailed ${email} a sign-up link. You can also share it directly:`
-                : `Email failed to send. Share this link with ${email} directly:`}
+                : `Send this link to ${email} however works best — text, WhatsApp, anywhere:`}
             </p>
             <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <span className="flex-1 truncate text-xs font-mono">{result.invite_url}</span>
