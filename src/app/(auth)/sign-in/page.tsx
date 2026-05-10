@@ -52,7 +52,7 @@ export default function SignInPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="bg-input border-border"
+              className="bg-input border-border text-base"
             />
           </div>
           <div className="space-y-2">
@@ -74,7 +74,7 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="bg-input border-border"
+              className="bg-input border-border text-base"
             />
           </div>
           {error && (

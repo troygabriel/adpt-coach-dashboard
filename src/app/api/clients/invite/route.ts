@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   // Branch 2: new user → create invitation row + send Supabase magic-link email.
   const { data: invite, error: inviteError } = await supabase
     .from("client_invitations")
-    .insert({ coach_id: coach.id, email })
+    .insert({ coach_id: coach.id, email, full_name: fullName })
     .select("token, expires_at")
     .single();
 

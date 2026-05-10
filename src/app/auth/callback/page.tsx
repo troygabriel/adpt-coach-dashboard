@@ -80,7 +80,7 @@ function CallbackInner() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
+      <main className="flex min-h-screen min-h-dvh items-center justify-center p-6">
         <div className="max-w-md space-y-2 rounded-lg border border-border bg-card p-8 text-center">
           <h1 className="text-lg font-semibold">Couldn&apos;t sign you in</h1>
           <p className="text-sm text-muted-foreground">{error}</p>

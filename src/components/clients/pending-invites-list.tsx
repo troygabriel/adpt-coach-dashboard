@@ -13,6 +13,7 @@ type PendingInvite = {
   email: string;
   token: string;
   expires_at: string;
+  full_name: string | null;
 };
 
 interface Props {
@@ -62,7 +63,16 @@ export function PendingInvitesList({ invites, appUrl }: Props) {
             className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{invite.email}</p>
+              <p className="truncate text-sm">
+                {invite.full_name ? (
+                  <>
+                    <span className="font-medium">{invite.full_name}</span>
+                    <span className="text-muted-foreground"> · {invite.email}</span>
+                  </>
+                ) : (
+                  invite.email
+                )}
+              </p>
               <p className="text-xs text-muted-foreground">
                 Expires {new Date(invite.expires_at).toLocaleDateString()}
               </p>

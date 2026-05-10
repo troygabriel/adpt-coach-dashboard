@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * Client onboarding form. Premium-feel single page that mirrors the mobile
+ * app's editorial vibe (Cal AI / MacroFactor: light, hairline, big type,
+ * generous spacing, monochrome). Shown when a client opens an invite link.
+ *
+ * Inputs are imperial (lbs/feet) to match the North American audience.
+ * Conversion to metric (cm/kg) happens at the boundary so the database
+ * stays consistent with the mobile app's source-of-truth schema.
+ */
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -7,28 +17,27 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const GOALS = [
   { value: "lose_fat", label: "Lose fat" },
   { value: "build_muscle", label: "Build muscle" },
   { value: "get_stronger", label: "Get stronger" },
-  { value: "general_fitness", label: "General fitness" },
+  { value: "general_fitness", label: "Feel better, stay healthy" },
   { value: "sport_specific", label: "Sport-specific" },
 ];
 
 const EXPERIENCE = [
-  { value: "beginner", label: "Less than 1 year" },
-  { value: "intermediate", label: "1–3 years" },
-  { value: "advanced", label: "3+ years" },
+  { value: "beginner", label: "New to lifting" },
+  { value: "intermediate", label: "Some experience" },
+  { value: "advanced", label: "3+ years lifting" },
 ];
 
 const EQUIPMENT = [
   { value: "full_gym", label: "Full gym" },
-  { value: "home_gym", label: "Home gym" },
-  { value: "dumbbells_only", label: "Dumbbells only" },
-  { value: "minimal", label: "Minimal / bodyweight" },
+  { value: "home_gym", label: "Home setup" },
+  { value: "dumbbells_only", label: "Just dumbbells" },
+  { value: "minimal", label: "Bodyweight only" },
 ];
 
 const DAYS = [2, 3, 4, 5, 6] as const;
@@ -37,29 +46,59 @@ interface Props {
   token: string;
   email: string;
   coachName: string;
+  /** Pre-filled from invitation row when the coach supplied a name. */
+  invitedName?: string | null;
 }
 
-export function ClientOnboardingForm({ token, email, coachName }: Props) {
+/** Convert ft/in inputs to cm. Returns null when inputs are missing/invalid. */
+function feetInchesToCm(ft: string, inch: string): number | null {
+  const f = ft ? parseInt(ft, 10) : 0;
+  const i = inch ? parseInt(inch, 10) : 0;
+  if (Number.isNaN(f) || Number.isNaN(i)) return null;
+  if (f === 0 && i === 0) return null;
+  return Math.round((f * 12 + i) * 2.54);
+}
+
+/** Convert lbs to kg with 0.1kg precision. Returns null when input invalid. */
+function lbsToKg(lbs: string): number | null {
+  if (!lbs) return null;
+  const n = parseFloat(lbs);
+  if (Number.isNaN(n)) return null;
+  return Math.round((n / 2.20462) * 10) / 10;
+}
+
+export function ClientOnboardingForm({
+  token,
+  email,
+  coachName,
+  invitedName,
+}: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [submitting, setSubmitting] = useState(false);
 
+  const [fullName, setFullName] = useState(invitedName ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [dob, setDob] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
+  // Imperial inputs — converted to metric at submit time.
+  const [heightFt, setHeightFt] = useState("");
+  const [heightIn, setHeightIn] = useState("");
+  const [weightLbs, setWeightLbs] = useState("");
+
   const [goal, setGoal] = useState("");
   const [experience, setExperience] = useState("");
   const [days, setDays] = useState<number | null>(null);
   const [equipment, setEquipment] = useState("");
   const [injuries, setInjuries] = useState("");
-  const [diet, setDiet] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!fullName.trim()) {
+      toast.error("What's your name?");
+      return;
+    }
     if (password.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
@@ -69,34 +108,27 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
       return;
     }
     if (!goal || !experience || !days || !equipment) {
-      toast.error("Please fill in all required fields");
+      toast.error("Please fill in your goal, experience, days, and equipment");
       return;
     }
 
     setSubmitting(true);
 
-    // Single server call that handles BOTH paths:
-    //   - Email-link arrival: user is signed in via Supabase verify
-    //   - Manual-share arrival: user has no session at all
-    // The endpoint uses the service role to find-or-create the auth user,
-    // set the password, link to the coach, and persist intake — atomically
-    // from our POV. After it succeeds we sign in to establish a session.
     const res = await fetch("/api/invite/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         token,
         password,
+        fullName: fullName.trim(),
         intake: {
-          date_of_birth: dob || null,
-          height_cm: heightCm ? parseInt(heightCm, 10) : null,
-          weight_kg: weightKg ? parseFloat(weightKg) : null,
+          height_cm: feetInchesToCm(heightFt, heightIn),
+          weight_kg: lbsToKg(weightLbs),
           primary_goal: goal,
           experience_level: experience,
           training_days_per_week: days,
           equipment_access: equipment,
           injuries: injuries.trim() || null,
-          dietary_notes: diet.trim() || null,
         },
       }),
     });
@@ -110,9 +142,6 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
       return;
     }
 
-    // Sign in with the password we just set so the next page render has
-    // a valid session. Best-effort — even if it fails we've already linked
-    // the coach, so router.refresh will pick up the accepted state.
     const { error: signInErr } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -125,83 +154,131 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Welcome to ADPT</h1>
-        <p className="text-sm text-muted-foreground">
-          {coachName} has set up your coaching. A few quick details so they can build your program.
+    <form onSubmit={handleSubmit} className="space-y-10">
+      {/* Editorial header — bigger type, more breathing room. */}
+      <header className="space-y-3">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Coaching with {coachName}
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Let&apos;s build your program.
+        </h1>
+        <p className="text-base text-muted-foreground">
+          A few quick answers so {coachName} can write a program that fits you,
+          not someone&apos;s template. Takes about 90 seconds.
         </p>
       </header>
 
-      <Card className="space-y-4 p-5">
-        <div>
-          <h2 className="text-base font-medium">Set a password</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            We&apos;ll create your account under{" "}
-            <span className="font-mono">{email}</span>
-          </p>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Password</label>
+      {/* Section 1 — account */}
+      <Section
+        kicker="Step 1"
+        title="Create your account"
+        helper={
+          <>
+            We&apos;ll save it to{" "}
+            <span className="font-mono text-foreground">{email}</span>.
+          </>
+        }
+      >
+        <Field label="Your name">
           <Input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="First and last"
             required
-            minLength={8}
-            autoComplete="new-password"
+            autoComplete="name"
+            className="text-base"
           />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Confirm password</label>
-          <Input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-        </div>
-      </Card>
-
-      <Card className="space-y-5 p-5">
-        <h2 className="text-base font-medium">About you</h2>
-
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Date of birth">
-            <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-          </Field>
-          <Field label="Height (cm)">
+        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Password">
             <Input
-              type="number"
-              inputMode="numeric"
-              value={heightCm}
-              onChange={(e) => setHeightCm(e.target.value)}
-              placeholder="175"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Min 8 characters"
+              className="text-base"
             />
           </Field>
-          <Field label="Weight (kg)">
+          <Field label="Confirm password">
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="text-base"
+            />
+          </Field>
+        </div>
+      </Section>
+
+      {/* Section 2 — body */}
+      <Section
+        kicker="Step 2"
+        title="Your body today"
+        helper="Used to scale weights and calorie targets. You can update this anytime."
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Height">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={heightFt}
+                onChange={(e) => setHeightFt(e.target.value)}
+                placeholder="5"
+                className="text-base"
+              />
+              <span className="text-sm text-muted-foreground">ft</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={heightIn}
+                onChange={(e) => setHeightIn(e.target.value)}
+                placeholder="10"
+                className="text-base"
+              />
+              <span className="text-sm text-muted-foreground">in</span>
+            </div>
+          </Field>
+          <Field label="Weight (lbs)">
             <Input
               type="number"
               inputMode="decimal"
               step="0.1"
-              value={weightKg}
-              onChange={(e) => setWeightKg(e.target.value)}
-              placeholder="75"
+              value={weightLbs}
+              onChange={(e) => setWeightLbs(e.target.value)}
+              placeholder="170"
+              className="text-base"
             />
           </Field>
         </div>
+      </Section>
 
+      {/* Section 3 — training */}
+      <Section
+        kicker="Step 3"
+        title="Your training"
+        helper="So your program matches what you actually want from this."
+      >
         <Field label="Primary goal" required>
           <ChipGroup options={GOALS} value={goal} onChange={setGoal} />
         </Field>
 
-        <Field label="Training experience" required>
-          <ChipGroup options={EXPERIENCE} value={experience} onChange={setExperience} />
+        <Field label="Experience" required>
+          <ChipGroup
+            options={EXPERIENCE}
+            value={experience}
+            onChange={setExperience}
+          />
         </Field>
 
-        <Field label="Training days per week" required>
+        <Field label="Days per week you can train" required>
           <div className="flex gap-2">
             {DAYS.map((d) => (
               <button
@@ -209,10 +286,10 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
                 type="button"
                 onClick={() => setDays(d)}
                 className={cn(
-                  "h-10 w-12 rounded-md border text-sm transition-colors",
+                  "h-12 w-14 rounded-lg border text-base font-medium transition-colors",
                   days === d
                     ? "border-foreground bg-foreground text-background"
-                    : "border-border hover:bg-muted/50"
+                    : "border-border hover:bg-muted/40",
                 )}
               >
                 {d}
@@ -222,33 +299,65 @@ export function ClientOnboardingForm({ token, email, coachName }: Props) {
           </div>
         </Field>
 
-        <Field label="Equipment access" required>
-          <ChipGroup options={EQUIPMENT} value={equipment} onChange={setEquipment} />
+        <Field label="Equipment" required>
+          <ChipGroup
+            options={EQUIPMENT}
+            value={equipment}
+            onChange={setEquipment}
+          />
         </Field>
 
-        <Field label="Injuries or limitations">
+        <Field label="Anything to work around?">
           <Textarea
             value={injuries}
             onChange={(e) => setInjuries(e.target.value)}
-            placeholder="Anything we should work around? (optional)"
+            placeholder="Old injuries, surgeries, mobility limits — optional"
             rows={2}
+            className="text-base"
           />
         </Field>
+      </Section>
 
-        <Field label="Dietary notes">
-          <Textarea
-            value={diet}
-            onChange={(e) => setDiet(e.target.value)}
-            placeholder="Allergies, preferences, anything else (optional)"
-            rows={2}
-          />
-        </Field>
-      </Card>
-
-      <Button type="submit" disabled={submitting} className="w-full" size="lg">
-        {submitting ? "Saving..." : "Complete setup"}
+      <Button
+        type="submit"
+        disabled={submitting}
+        size="lg"
+        className="h-12 w-full text-base"
+      >
+        {submitting ? "Setting up…" : "Start training"}
       </Button>
+
+      <p className="pb-2 text-center text-xs text-muted-foreground">
+        By continuing, you agree to share this info with {coachName}.
+      </p>
     </form>
+  );
+}
+
+function Section({
+  kicker,
+  title,
+  helper,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  helper?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-5">
+      <header className="space-y-1">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          {kicker}
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        {helper && (
+          <p className="text-sm text-muted-foreground">{helper}</p>
+        )}
+      </header>
+      <div className="space-y-5 border-t border-border pt-5">{children}</div>
+    </section>
   );
 }
 
@@ -265,7 +374,9 @@ function Field({
     <div className="space-y-2">
       <label className="text-sm font-medium">
         {label}
-        {required && <span className="ml-0.5 text-muted-foreground">*</span>}
+        {required && (
+          <span className="ml-0.5 text-muted-foreground">*</span>
+        )}
       </label>
       {children}
     </div>
@@ -282,17 +393,17 @@ function ChipGroup({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="flex flex-wrap gap-2">
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
           className={cn(
-            "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+            "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
             value === opt.value
               ? "border-foreground bg-foreground text-background"
-              : "border-border hover:bg-muted/50"
+              : "border-border bg-background hover:bg-muted/40",
           )}
         >
           {opt.label}

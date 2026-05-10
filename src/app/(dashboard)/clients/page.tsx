@@ -21,13 +21,20 @@ export default async function ClientsPage() {
       .select("*")
       .eq("coach_id", user.id)
       .order("created_at", { ascending: false }),
-    supabase
+    // full_name selected only after migration 20260510 lands. The cast
+    // shuts up the typed client until `npx supabase gen types` regenerates
+    // database.ts to include the new column.
+    (supabase
       .from("client_invitations")
-      .select("id, email, token, expires_at")
+      .select("id, email, token, expires_at, full_name")
       .eq("coach_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false }) as unknown) as Promise<{
+      data:
+        | { id: string; email: string; token: string; expires_at: string; full_name: string | null }[]
+        | null;
+    }>,
   ]);
 
   const clientIds = (coachClients ?? []).map((c) => c.client_id);
