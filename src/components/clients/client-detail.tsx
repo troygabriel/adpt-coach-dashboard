@@ -7,10 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronRight, MessageSquare, Pencil, Plus } from "lucide-react";
+import { ChevronRight, MessageSquare, Plus } from "lucide-react";
 import { cn, formatCurrency, pluralize } from "@/lib/utils";
 import { IntakeCard, type Intake } from "./intake-card";
 import { CoachTasksCard, type CoachTask } from "./coach-tasks-card";
@@ -18,6 +17,7 @@ import { HabitsCard, type HabitAssignment } from "./habits-card";
 import { ComplianceRow } from "./compliance-row";
 import { ClientHomeMirror } from "./client-home-mirror";
 import { ClientActivityRail } from "./client-activity-rail";
+import { MacroTargets } from "./macro-targets";
 
 type ScheduledRow = {
   id: string;
@@ -132,15 +132,6 @@ export function ClientDetail({
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  // Macros editor state — start collapsed unless targets exist
-  const hasMacros = !!(macros?.calories || macros?.protein_g || macros?.carbs_g || macros?.fat_g);
-  const [editingMacros, setEditingMacros] = useState(!hasMacros ? false : false);
-  const [calories, setCalories] = useState(macros?.calories?.toString() || "");
-  const [protein, setProtein] = useState(macros?.protein_g?.toString() || "");
-  const [carbs, setCarbs] = useState(macros?.carbs_g?.toString() || "");
-  const [fat, setFat] = useState(macros?.fat_g?.toString() || "");
-  const [savingMacros, setSavingMacros] = useState(false);
-
   const addNote = useCallback(async () => {
     if (!newNote.trim()) return;
     setSavingNote(true);
@@ -157,30 +148,6 @@ export function ClientDetail({
     setNewNote("");
     router.refresh();
   }, [newNote, coachId, clientId, router, supabase]);
-
-  const saveMacros = useCallback(async () => {
-    setSavingMacros(true);
-    const { error } = await supabase.from("client_macros").upsert(
-      {
-        client_id: clientId,
-        coach_id: coachId,
-        calories: calories ? parseInt(calories) : null,
-        protein_g: protein ? parseInt(protein) : null,
-        carbs_g: carbs ? parseInt(carbs) : null,
-        fat_g: fat ? parseInt(fat) : null,
-        effective_from: new Date().toISOString().split("T")[0],
-      },
-      { onConflict: "client_id,effective_from" }
-    );
-    setSavingMacros(false);
-    if (error) {
-      toast.error("Couldn't save targets", { description: error.message });
-      return;
-    }
-    toast.success("Nutrition targets saved");
-    setEditingMacros(false);
-    router.refresh();
-  }, [calories, protein, carbs, fat, clientId, coachId, router, supabase]);
 
   const latestWeight = bodyStats?.[0];
   const latestWeightLbs = latestWeight?.weight_kg
@@ -374,73 +341,16 @@ export function ClientDetail({
             )}
           </section>
 
-          {/* Nutrition targets — collapsed by default if not set */}
-          <section>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold tracking-tight">Nutrition targets</h3>
-              {hasMacros && !editingMacros && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  onClick={() => setEditingMacros(true)}
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edit
-                </Button>
-              )}
-            </div>
-
-            {!hasMacros && !editingMacros ? (
-              <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
-                <p className="text-sm text-muted-foreground">No targets set.</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setEditingMacros(true)}
-                >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Set targets
-                </Button>
-              </div>
-            ) : !editingMacros ? (
-              <Card className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border p-0 sm:grid-cols-4">
-                <MacroCell label="Calories" value={macros?.calories} />
-                <MacroCell label="Protein" value={macros?.protein_g} suffix="g" />
-                <MacroCell label="Carbs" value={macros?.carbs_g} suffix="g" />
-                <MacroCell label="Fat" value={macros?.fat_g} suffix="g" />
-              </Card>
-            ) : (
-              <Card className="space-y-3 p-4">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <MacroInput label="Calories" value={calories} onChange={setCalories} />
-                  <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
-                  <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
-                  <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
-                </div>
-                <div className="flex justify-end gap-2">
-                  {hasMacros && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingMacros(false);
-                        setCalories(macros?.calories?.toString() || "");
-                        setProtein(macros?.protein_g?.toString() || "");
-                        setCarbs(macros?.carbs_g?.toString() || "");
-                        setFat(macros?.fat_g?.toString() || "");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                  <Button size="sm" onClick={saveMacros} disabled={savingMacros}>
-                    {savingMacros ? "Saving..." : "Save targets"}
-                  </Button>
-                </div>
-              </Card>
-            )}
+          {/* Nutrition targets — single source of truth via MacroTargets.
+              Same component used on the Meals page so coaches can't drift
+              between two editors. */}
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold tracking-tight">Nutrition targets</h3>
+            <MacroTargets
+              coachId={coachId}
+              clientId={clientId}
+              macros={macros}
+            />
           </section>
 
           {/* Coach notes */}
@@ -510,51 +420,3 @@ function StatCell({
   );
 }
 
-function MacroCell({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: number | null | undefined;
-  suffix?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5 bg-background p-3">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="text-lg font-semibold tabular-nums">
-        {value ?? "—"}
-        {value && suffix && (
-          <span className="ml-0.5 text-xs font-normal text-muted-foreground">{suffix}</span>
-        )}
-      </p>
-    </div>
-  );
-}
-
-function MacroInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </label>
-      <Input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9"
-      />
-    </div>
-  );
-}
