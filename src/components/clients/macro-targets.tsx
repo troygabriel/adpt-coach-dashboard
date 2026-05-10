@@ -1,5 +1,22 @@
 "use client";
 
+/**
+ * Daily macro target editor.
+ *
+ * Calories anchor the budget. Protein/carbs/fat are entered in grams (the
+ * unit coaches actually program in) with sliders for tactile drag plus a
+ * numeric input for precision. Each row shows derived "% of calories" and
+ * "kcal" so the macro split is legible without the coach doing math in
+ * their head.
+ *
+ * A reconciliation chip at the bottom shows summed-kcal vs target-kcal so
+ * drift is obvious. Save is allowed regardless of drift — coaches sometimes
+ * intentionally under/over-allocate during refeeds, deficits, etc.
+ *
+ * Schema unchanged: persists calories + grams to client_macros. Percentages
+ * are derived only.
+ */
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -8,6 +25,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 
 export type Macros = {
   calories: number | null;
@@ -15,6 +34,24 @@ export type Macros = {
   carbs_g: number | null;
   fat_g: number | null;
 } | null;
+
+const KCAL_PER_G = { protein: 4, carbs: 4, fat: 9 } as const;
+type MacroKey = keyof typeof KCAL_PER_G;
+
+/** Treat anything within 1% of target as "in budget". Outside that → warning. */
+const DRIFT_TOLERANCE_PCT = 1;
+
+function gramsToKcal(g: number, macro: MacroKey): number {
+  return g * KCAL_PER_G[macro];
+}
+function pctOf(g: number, macro: MacroKey, totalKcal: number): number {
+  if (totalKcal <= 0) return 0;
+  return (gramsToKcal(g, macro) / totalKcal) * 100;
+}
+function parseNum(s: string): number {
+  const n = parseFloat(s);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
 
 export function MacroTargets({
   coachId,
@@ -40,6 +77,23 @@ export function MacroTargets({
   const [fat, setFat] = useState(macros?.fat_g?.toString() || "");
   const [saving, setSaving] = useState(false);
 
+  const calNum = parseNum(calories);
+  const proNum = parseNum(protein);
+  const carbNum = parseNum(carbs);
+  const fatNum = parseNum(fat);
+  const summedKcal =
+    gramsToKcal(proNum, "protein") +
+    gramsToKcal(carbNum, "carbs") +
+    gramsToKcal(fatNum, "fat");
+  const driftPct =
+    calNum > 0 ? Math.abs(summedKcal - calNum) / calNum * 100 : 0;
+  const driftStatus: "ok" | "warn" | "neutral" =
+    calNum <= 0
+      ? "neutral"
+      : driftPct <= DRIFT_TOLERANCE_PCT
+        ? "ok"
+        : "warn";
+
   const save = async () => {
     setSaving(true);
     const supabase = createClient();
@@ -47,13 +101,13 @@ export function MacroTargets({
       {
         client_id: clientId,
         coach_id: coachId,
-        calories: calories ? parseInt(calories, 10) : null,
-        protein_g: protein ? parseInt(protein, 10) : null,
-        carbs_g: carbs ? parseInt(carbs, 10) : null,
-        fat_g: fat ? parseInt(fat, 10) : null,
+        calories: calories ? Math.round(calNum) : null,
+        protein_g: protein ? Math.round(proNum) : null,
+        carbs_g: carbs ? Math.round(carbNum) : null,
+        fat_g: fat ? Math.round(fatNum) : null,
         effective_from: new Date().toISOString().split("T")[0],
       },
-      { onConflict: "client_id,effective_from" }
+      { onConflict: "client_id,effective_from" },
     );
     setSaving(false);
     if (error) {
@@ -63,6 +117,14 @@ export function MacroTargets({
     toast.success("Nutrition targets saved");
     setEditing(false);
     router.refresh();
+  };
+
+  const cancel = () => {
+    setEditing(false);
+    setCalories(macros?.calories?.toString() || "");
+    setProtein(macros?.protein_g?.toString() || "");
+    setCarbs(macros?.carbs_g?.toString() || "");
+    setFat(macros?.fat_g?.toString() || "");
   };
 
   if (!hasMacros && !editing) {
@@ -103,37 +165,138 @@ export function MacroTargets({
         </div>
         <Card className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border p-0 sm:grid-cols-4">
           <MacroCell label="Calories" value={macros?.calories ?? null} />
-          <MacroCell label="Protein" value={macros?.protein_g ?? null} suffix="g" />
-          <MacroCell label="Carbs" value={macros?.carbs_g ?? null} suffix="g" />
-          <MacroCell label="Fat" value={macros?.fat_g ?? null} suffix="g" />
+          <MacroCell
+            label="Protein"
+            value={macros?.protein_g ?? null}
+            suffix="g"
+            secondary={
+              macros?.protein_g && macros?.calories
+                ? `${Math.round(pctOf(macros.protein_g, "protein", macros.calories))}%`
+                : undefined
+            }
+          />
+          <MacroCell
+            label="Carbs"
+            value={macros?.carbs_g ?? null}
+            suffix="g"
+            secondary={
+              macros?.carbs_g && macros?.calories
+                ? `${Math.round(pctOf(macros.carbs_g, "carbs", macros.calories))}%`
+                : undefined
+            }
+          />
+          <MacroCell
+            label="Fat"
+            value={macros?.fat_g ?? null}
+            suffix="g"
+            secondary={
+              macros?.fat_g && macros?.calories
+                ? `${Math.round(pctOf(macros.fat_g, "fat", macros.calories))}%`
+                : undefined
+            }
+          />
         </Card>
       </div>
     );
   }
 
+  // Slider max = whatever fits the calorie budget (so 100% = full bar).
+  // Floor at 50g so blank/zero calories doesn't lock the slider at 0.
+  const sliderMaxFor = (macro: MacroKey): number => {
+    if (calNum <= 0) return 50;
+    return Math.max(20, Math.ceil(calNum / KCAL_PER_G[macro]));
+  };
+  const caloriesSet = calNum > 0;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h2 className="text-sm font-medium">Daily targets</h2>
-      <Card className="space-y-3 p-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MacroInput label="Calories" value={calories} onChange={setCalories} />
-          <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
-          <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
-          <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
+
+      <Card className="space-y-6 p-5">
+        {/* Calories anchor */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Calories / day
+            </label>
+            <div className="mt-1 flex items-baseline gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={calories}
+                onChange={(e) => setCalories(e.target.value)}
+                placeholder="2000"
+                className="h-10 w-32 text-lg font-semibold tabular-nums"
+              />
+              <span className="text-xs text-muted-foreground">kcal</span>
+            </div>
+          </div>
+          {!caloriesSet && (
+            <p className="text-xs text-muted-foreground">
+              Set calories to unlock macro sliders.
+            </p>
+          )}
         </div>
+
+        <div className="space-y-5 border-t border-border pt-5">
+          <MacroRow
+            label="Protein"
+            macro="protein"
+            value={protein}
+            onChange={setProtein}
+            totalKcal={calNum}
+            max={sliderMaxFor("protein")}
+            disabled={!caloriesSet}
+          />
+          <MacroRow
+            label="Carbs"
+            macro="carbs"
+            value={carbs}
+            onChange={setCarbs}
+            totalKcal={calNum}
+            max={sliderMaxFor("carbs")}
+            disabled={!caloriesSet}
+          />
+          <MacroRow
+            label="Fat"
+            macro="fat"
+            value={fat}
+            onChange={setFat}
+            totalKcal={calNum}
+            max={sliderMaxFor("fat")}
+            disabled={!caloriesSet}
+          />
+        </div>
+
+        {/* Reconciliation chip */}
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-md border px-3 py-2 text-xs tabular-nums",
+            driftStatus === "ok" &&
+              "border-border bg-muted/30 text-muted-foreground",
+            driftStatus === "warn" &&
+              "border-foreground/40 bg-foreground/5 text-foreground",
+            driftStatus === "neutral" &&
+              "border-dashed border-border text-muted-foreground",
+          )}
+        >
+          <span className="font-medium">From macros</span>
+          <span>
+            {Math.round(summedKcal).toLocaleString()} /{" "}
+            {caloriesSet ? calNum.toLocaleString() : "—"} kcal
+            {driftStatus === "warn" && (
+              <span className="ml-2 text-[10px] font-medium uppercase tracking-wide">
+                · {driftPct > 0 && summedKcal > calNum ? "over" : "under"} by{" "}
+                {Math.round(driftPct)}%
+              </span>
+            )}
+          </span>
+        </div>
+
         <div className="flex justify-end gap-2">
           {hasMacros && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setEditing(false);
-                setCalories(macros?.calories?.toString() || "");
-                setProtein(macros?.protein_g?.toString() || "");
-                setCarbs(macros?.carbs_g?.toString() || "");
-                setFat(macros?.fat_g?.toString() || "");
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={cancel}>
               Cancel
             </Button>
           )}
@@ -146,14 +309,82 @@ export function MacroTargets({
   );
 }
 
+function MacroRow({
+  label,
+  macro,
+  value,
+  onChange,
+  totalKcal,
+  max,
+  disabled,
+}: {
+  label: string;
+  macro: MacroKey;
+  value: string;
+  onChange: (v: string) => void;
+  totalKcal: number;
+  max: number;
+  disabled: boolean;
+}) {
+  const grams = parseNum(value);
+  const kcal = gramsToKcal(grams, macro);
+  const pct = totalKcal > 0 ? pctOf(grams, macro, totalKcal) : 0;
+  const sliderValue = Math.min(grams, max);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        <span
+          className={cn(
+            "tabular-nums text-xs",
+            disabled ? "text-muted-foreground/50" : "text-muted-foreground",
+          )}
+        >
+          {disabled
+            ? "— · — kcal"
+            : `${Math.round(pct)}% · ${Math.round(kcal).toLocaleString()} kcal`}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <Slider
+          value={[sliderValue]}
+          onValueChange={(v) => onChange(String(Math.round(v[0])))}
+          min={0}
+          max={max}
+          step={1}
+          disabled={disabled}
+          className="flex-1"
+          aria-label={`${label} grams`}
+        />
+        <div className="flex items-baseline gap-1">
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            className="h-9 w-20 tabular-nums"
+            placeholder="0"
+          />
+          <span className="text-xs text-muted-foreground">g</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MacroCell({
   label,
   value,
   suffix,
+  secondary,
 }: {
   label: string;
   value: number | null;
   suffix?: string;
+  secondary?: string;
 }) {
   return (
     <div className="bg-card p-3.5">
@@ -168,31 +399,11 @@ function MacroCell({
           </span>
         )}
       </p>
-    </div>
-  );
-}
-
-function MacroInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </label>
-      <Input
-        type="number"
-        min={0}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 tabular-nums"
-      />
+      {secondary && (
+        <p className="text-[11px] text-muted-foreground tabular-nums">
+          {secondary}
+        </p>
+      )}
     </div>
   );
 }
