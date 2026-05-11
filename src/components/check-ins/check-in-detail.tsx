@@ -205,7 +205,7 @@ export function CheckInDetail({
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-semibold tabular-nums text-foreground">
-                          {responses.weight_kg.toFixed(1)} kg
+                          {(responses.weight_kg * 2.20462).toFixed(1)} lbs
                         </span>
                         <WeightDelta
                           current={responses.weight_kg}
@@ -503,7 +503,7 @@ function WeightDelta({
       ) : (
         <TrendingDown className="mr-0.5 h-3 w-3" />
       )}
-      {Math.abs(delta).toFixed(1)}
+      {(Math.abs(delta) * 2.20462).toFixed(1)} lbs
     </span>
   );
 }

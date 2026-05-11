@@ -44,6 +44,23 @@ function calculateAge(dob: string | null): number | null {
   return age;
 }
 
+/** DB stores cm — display as `5'10"` for the NA audience. */
+function formatHeight(cm: number | null): string {
+  if (!cm) return "—";
+  const totalInches = cm / 2.54;
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches - feet * 12);
+  // 11.5" rounds to 12" → bump to next foot
+  if (inches === 12) return `${feet + 1}'0"`;
+  return `${feet}'${inches}"`;
+}
+
+/** DB stores kg — display as `170 lbs`. */
+function formatWeight(kg: number | null): string {
+  if (!kg) return "—";
+  return `${Math.round(kg * 2.20462)} lbs`;
+}
+
 export function IntakeCard({ intake }: { intake: Intake | null }) {
   if (!intake) {
     return (
@@ -69,8 +86,8 @@ export function IntakeCard({ intake }: { intake: Intake | null }) {
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         <Stat label="Age" value={age ? `${age}` : "—"} />
-        <Stat label="Height" value={intake.height_cm ? `${intake.height_cm} cm` : "—"} />
-        <Stat label="Weight" value={intake.weight_kg ? `${intake.weight_kg} kg` : "—"} />
+        <Stat label="Height" value={formatHeight(intake.height_cm)} />
+        <Stat label="Weight" value={formatWeight(intake.weight_kg)} />
         <Stat label="Days/wk" value={intake.training_days_per_week?.toString() ?? "—"} />
         <Stat label="Goal" value={intake.primary_goal ? GOAL_LABELS[intake.primary_goal] : "—"} />
         <Stat
