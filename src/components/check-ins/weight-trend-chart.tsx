@@ -13,7 +13,8 @@ export function WeightTrendChart({ bodyStats }: WeightTrendChartProps) {
     .filter((s) => s.weight_kg != null)
     .map((s) => ({
       date: s.date,
-      weight: s.weight_kg!,
+      // DB stores kg, dashboard shows lbs — convert once at the read edge.
+      weight: s.weight_kg! * 2.20462,
       label: new Date(s.date).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -59,11 +60,11 @@ export function WeightTrendChart({ bodyStats }: WeightTrendChartProps) {
     <div className="space-y-4">
       {/* Summary stats */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <MiniStat label="Current" value={`${latest.toFixed(1)} kg`} />
-        <MiniStat label="7-day Avg" value={`${recentAvg.toFixed(1)} kg`} />
+        <MiniStat label="Current" value={`${latest.toFixed(1)} lbs`} />
+        <MiniStat label="7-day Avg" value={`${recentAvg.toFixed(1)} lbs`} />
         <MiniStat
           label="This Week"
-          value={`${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)} kg`}
+          value={`${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)} lbs`}
           color={
             Math.abs(weekDelta) < 0.1
               ? "text-muted-foreground"
@@ -74,7 +75,7 @@ export function WeightTrendChart({ bodyStats }: WeightTrendChartProps) {
         />
         <MiniStat
           label="Total Change"
-          value={`${totalDelta >= 0 ? "+" : ""}${totalDelta.toFixed(1)} kg`}
+          value={`${totalDelta >= 0 ? "+" : ""}${totalDelta.toFixed(1)} lbs`}
           color={
             Math.abs(totalDelta) < 0.1
               ? "text-muted-foreground"
@@ -121,7 +122,7 @@ export function WeightTrendChart({ bodyStats }: WeightTrendChartProps) {
                     <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block z-10">
                       <div className="rounded bg-popover border border-border px-2 py-1 text-xs whitespace-nowrap shadow-lg">
                         <div className="font-medium text-foreground">
-                          {d.weight.toFixed(1)} kg
+                          {d.weight.toFixed(1)} lbs
                         </div>
                         <div className="text-muted-foreground">{d.label}</div>
                       </div>

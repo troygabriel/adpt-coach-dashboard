@@ -81,6 +81,91 @@ export function MacroTargets({
   const proNum = parseNum(protein);
   const carbNum = parseNum(carbs);
   const fatNum = parseNum(fat);
+
+  /**
+   * Slider drag rebalances the other two macros proportionally so the
+   * total stays at the calorie target. Typing into the numeric input
+   * does NOT rebalance — precision intent.
+   *
+   *   delta = newKcal - oldKcal for the moved macro
+   *   other two absorb -delta, split by their current kcal share
+   *
+   * Clamps at 0 — if the others can't give up enough kcal, the dragged
+   * macro is capped so the budget isn't violated by negative grams. The
+   * drift chip handles any residual rounding so coaches still see the
+   * truth.
+   */
+  function balanceFromSlider(
+    moved: MacroKey,
+    newGrams: number,
+  ): { protein: number; carbs: number; fat: number } {
+    const current = {
+      protein: proNum,
+      carbs: carbNum,
+      fat: fatNum,
+    } as Record<MacroKey, number>;
+    if (calNum <= 0) {
+      // No budget set — slider edits are free.
+      return { ...current, [moved]: newGrams };
+    }
+
+    const movedDeltaKcal =
+      gramsToKcal(newGrams, moved) - gramsToKcal(current[moved], moved);
+    if (movedDeltaKcal === 0) return { ...current, [moved]: newGrams };
+
+    const others: MacroKey[] = (
+      ["protein", "carbs", "fat"] as MacroKey[]
+    ).filter((m) => m !== moved);
+    const otherKcal: Record<MacroKey, number> = {
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    };
+    let otherTotal = 0;
+    for (const m of others) {
+      otherKcal[m] = gramsToKcal(current[m], m);
+      otherTotal += otherKcal[m];
+    }
+
+    // If the others are all zero, splitting evenly is the best we can do.
+    const shares: Record<MacroKey, number> = {
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    };
+    if (otherTotal > 0) {
+      for (const m of others) shares[m] = otherKcal[m] / otherTotal;
+    } else {
+      for (const m of others) shares[m] = 1 / others.length;
+    }
+
+    const next: Record<MacroKey, number> = { ...current, [moved]: newGrams };
+    let absorbed = 0;
+    for (const m of others) {
+      const kcalChange = -movedDeltaKcal * shares[m];
+      const newKcal = Math.max(0, otherKcal[m] + kcalChange);
+      const newG = Math.round(newKcal / KCAL_PER_G[m]);
+      next[m] = newG;
+      absorbed += newKcal - otherKcal[m];
+    }
+
+    // If others bottomed out at 0 before absorbing the full delta, cap
+    // the moved macro so we don't run over budget.
+    const shortfall = -movedDeltaKcal - absorbed;
+    if (Math.abs(shortfall) > 1 && movedDeltaKcal > 0) {
+      const cappedKcal = gramsToKcal(newGrams, moved) - shortfall;
+      next[moved] = Math.max(0, Math.round(cappedKcal / KCAL_PER_G[moved]));
+    }
+
+    return next;
+  }
+
+  function setMacroFromSlider(moved: MacroKey, newGrams: number) {
+    const next = balanceFromSlider(moved, newGrams);
+    setProtein(String(next.protein));
+    setCarbs(String(next.carbs));
+    setFat(String(next.fat));
+  }
   const summedKcal =
     gramsToKcal(proNum, "protein") +
     gramsToKcal(carbNum, "carbs") +
@@ -245,6 +330,7 @@ export function MacroTargets({
             macro="protein"
             value={protein}
             onChange={setProtein}
+            onSlider={(g) => setMacroFromSlider("protein", g)}
             totalKcal={calNum}
             max={sliderMaxFor("protein")}
             disabled={!caloriesSet}
@@ -254,6 +340,7 @@ export function MacroTargets({
             macro="carbs"
             value={carbs}
             onChange={setCarbs}
+            onSlider={(g) => setMacroFromSlider("carbs", g)}
             totalKcal={calNum}
             max={sliderMaxFor("carbs")}
             disabled={!caloriesSet}
@@ -263,6 +350,7 @@ export function MacroTargets({
             macro="fat"
             value={fat}
             onChange={setFat}
+            onSlider={(g) => setMacroFromSlider("fat", g)}
             totalKcal={calNum}
             max={sliderMaxFor("fat")}
             disabled={!caloriesSet}
@@ -314,6 +402,7 @@ function MacroRow({
   macro,
   value,
   onChange,
+  onSlider,
   totalKcal,
   max,
   disabled,
@@ -321,7 +410,10 @@ function MacroRow({
   label: string;
   macro: MacroKey;
   value: string;
+  /** Numeric input edits — direct set, no auto-balance. */
   onChange: (v: string) => void;
+  /** Slider drag — fires the auto-balance pathway. */
+  onSlider: (grams: number) => void;
   totalKcal: number;
   max: number;
   disabled: boolean;
@@ -349,7 +441,7 @@ function MacroRow({
       <div className="flex items-center gap-3">
         <Slider
           value={[sliderValue]}
-          onValueChange={(v) => onChange(String(Math.round(v[0])))}
+          onValueChange={(v) => onSlider(Math.round(v[0]))}
           min={0}
           max={max}
           step={1}
