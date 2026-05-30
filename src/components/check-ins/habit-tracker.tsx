@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Target, Flame, Check, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +38,6 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
     setSaving(true);
     const supabase = createClient();
 
-    // TODO(schema-drift): DB columns are `target_value`/`active`, not
-    // `target_count`/`is_active`. Mapping here so the insert actually works.
     await supabase.from("habit_assignments").insert({
       coach_id: coachId,
       client_id: clientId,
@@ -57,7 +55,6 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
 
   const handleDeactivate = async (habitId: string) => {
     const supabase = createClient();
-    // TODO(schema-drift): real column is `active`, not `is_active`.
     await supabase
       .from("habit_assignments")
       .update({ active: false })
@@ -100,7 +97,7 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
       const hasLog = habit.habit_logs?.some(
-        (l) => l.date === dateStr && l.count_completed >= 1
+        (l) => l.date === dateStr && l.completed
       );
       result.push(!!hasLog);
     }
@@ -214,15 +211,16 @@ export function HabitTracker({ habits, clientId, coachId }: HabitTrackerProps) {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {habit.frequency === "daily" ? "Daily" : "Weekly"}
-                        {habit.target_count > 1 &&
-                          ` \u00b7 ${habit.target_count}x`}
+                        {habit.target_value != null &&
+                          habit.target_value > 1 &&
+                          ` \u00b7 ${habit.target_value}x`}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {streak > 0 && (
                         <Badge
                           variant="outline"
-                          className="bg-gold/10 text-gold border-gold/30"
+                          className="bg-muted text-foreground border-border"
                         >
                           <Flame className="mr-1 h-3 w-3" />
                           {streak}

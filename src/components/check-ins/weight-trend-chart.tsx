@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Minus, Scale } from "lucide-react";
+import { Scale } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BodyStat } from "@/types";
 
@@ -146,82 +146,11 @@ export function WeightTrendChart({ bodyStats }: WeightTrendChartProps) {
         </CardContent>
       </Card>
 
-      {/* Measurements history */}
-      {bodyStats.some((s) => s.measurements && Object.keys(s.measurements).length > 0) && (
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Measurement History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 pr-4 text-muted-foreground font-medium">
-                      Date
-                    </th>
-                    <th className="text-right py-2 px-2 text-muted-foreground font-medium">
-                      Waist
-                    </th>
-                    <th className="text-right py-2 px-2 text-muted-foreground font-medium">
-                      Chest
-                    </th>
-                    <th className="text-right py-2 px-2 text-muted-foreground font-medium">
-                      Arms
-                    </th>
-                    <th className="text-right py-2 px-2 text-muted-foreground font-medium">
-                      Thighs
-                    </th>
-                    <th className="text-right py-2 pl-2 text-muted-foreground font-medium">
-                      Hips
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bodyStats
-                    .filter(
-                      (s) =>
-                        s.measurements &&
-                        Object.keys(s.measurements).length > 0
-                    )
-                    .slice(-8)
-                    .reverse()
-                    .map((stat) => (
-                      <tr
-                        key={stat.id}
-                        className="border-b border-border/50"
-                      >
-                        <td className="py-2 pr-4 text-muted-foreground">
-                          {new Date(stat.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </td>
-                        <td className="text-right py-2 px-2 tabular-nums text-foreground">
-                          {stat.measurements?.waist ?? "—"}
-                        </td>
-                        <td className="text-right py-2 px-2 tabular-nums text-foreground">
-                          {stat.measurements?.chest ?? "—"}
-                        </td>
-                        <td className="text-right py-2 px-2 tabular-nums text-foreground">
-                          {stat.measurements?.arms ?? "—"}
-                        </td>
-                        <td className="text-right py-2 px-2 tabular-nums text-foreground">
-                          {stat.measurements?.thighs ?? "—"}
-                        </td>
-                        <td className="text-right py-2 pl-2 tabular-nums text-foreground">
-                          {stat.measurements?.hips ?? "—"}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* NOTE: Circumference measurements (waist/chest/arms/thighs) were
+          removed here — the `*_cm` columns exist on body_stats but nothing
+          writes them yet and there's no client-side logging UI. Tracking is
+          queued as an end-to-end feature (mobile logging → chart). Until then
+          we show only what's actually captured: weight + body fat. */}
     </div>
   );
 }

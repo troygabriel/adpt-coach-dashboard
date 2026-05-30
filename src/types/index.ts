@@ -144,13 +144,15 @@ export interface CheckInPhoto {
   created_at: string;
 }
 
+// Mirrors the live `body_stats` table. The circumference `*_cm` columns
+// exist in the DB but aren't written/surfaced yet (see WeightTrendChart note);
+// add them here when measurement tracking ships end-to-end.
 export interface BodyStat {
   id: string;
   client_id: string;
   date: string;
   weight_kg: number | null;
   body_fat_pct: number | null;
-  measurements: Record<string, number> | null;
   created_at: string;
 }
 
@@ -168,16 +170,15 @@ export interface CheckInWithClient extends CheckIn {
 }
 
 // Coach notes — replaces Notion/external docs
+// Mirrors the live `coach_notes` table — body-only. Rich notes
+// (title/category/pinned) are a deferred feature; do not reintroduce those
+// columns in code without a migration that actually adds them to the DB.
 export interface CoachNote {
   id: string;
   coach_id: string;
   client_id: string;
-  category: "general" | "nutrition" | "training" | "lifestyle" | "pinned" | "weekly";
-  title: string;
-  content: string;
-  is_pinned: boolean;
+  body: string;
   created_at: string;
-  updated_at: string;
 }
 
 // Auto-flag types for check-in review
@@ -199,23 +200,31 @@ export interface CheckInFlag {
   detail?: string;
 }
 
-// Habit tracking (coach-assigned)
+// Habit tracking (coach-assigned). Shape mirrors the live `habit_assignments`
+// table (ADPT/supabase migrations baseline) — do not reintroduce the old
+// `target_count`/`is_active` names; those columns do not exist in the DB.
 export interface HabitAssignment {
   id: string;
   coach_id: string;
   client_id: string;
   name: string;
+  description: string | null;
   frequency: "daily" | "weekly";
-  target_count: number;
-  is_active: boolean;
+  target_value: number | null;
+  unit: string | null;
+  active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
+// Mirrors the live `habit_logs` table.
 export interface HabitLog {
   id: string;
-  habit_id: string;
+  assignment_id: string;
+  client_id: string;
   date: string;
-  count_completed: number;
+  completed: boolean;
+  value: number | null;
 }
 
 export interface HabitWithLogs extends HabitAssignment {
