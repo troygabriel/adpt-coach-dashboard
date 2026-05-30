@@ -41,6 +41,8 @@ export function WorkoutEditor({
   const [name, setName] = useState(workoutName);
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [saving, setSaving] = useState(false);
+  // Index of the exercise currently being dragged (native HTML5 DnD).
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   // Sync state when props change (different workout opened)
   React.useEffect(() => {
@@ -66,6 +68,16 @@ export function WorkoutEditor({
 
   const removeExercise = useCallback((idx: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const moveExercise = useCallback((from: number, to: number) => {
+    setExercises((prev) => {
+      if (to < 0 || to >= prev.length || from === to) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   }, []);
 
   const save = useCallback(async () => {
@@ -142,12 +154,31 @@ export function WorkoutEditor({
               {exercises.map((ex, idx) => (
                 <li
                   key={`${idx}-${ex.name}`}
-                  className="rounded-xl border border-border bg-card p-3.5"
+                  onDragOver={(e) => {
+                    if (dragIndex !== null) e.preventDefault();
+                  }}
+                  onDrop={() => {
+                    if (dragIndex !== null) moveExercise(dragIndex, idx);
+                    setDragIndex(null);
+                  }}
+                  className={`rounded-xl border bg-card p-3.5 transition-opacity ${
+                    dragIndex === idx
+                      ? "border-primary/50 opacity-50"
+                      : "border-border"
+                  }`}
                 >
                   {/* Top row: handle + name + delete */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
-                      <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground/50" />
+                      <span
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragEnd={() => setDragIndex(null)}
+                        className="shrink-0 cursor-grab active:cursor-grabbing"
+                        aria-label={`Drag to reorder ${ex.name}`}
+                      >
+                        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                      </span>
                       <span className="truncate text-sm font-medium">{ex.name}</span>
                     </div>
                     <Button
@@ -214,6 +245,14 @@ export function WorkoutEditor({
                       />
                     </Field>
                   </div>
+
+                  {/* Coaching note / cue — flows to the client's mobile app */}
+                  <Input
+                    value={ex.notes ?? ""}
+                    placeholder="Note or cue (optional) — e.g. tempo 3-1-1, last set to failure"
+                    onChange={(e) => updateExercise(idx, "notes", e.target.value)}
+                    className="mt-2.5 h-9 text-sm"
+                  />
                 </li>
               ))}
             </ul>
