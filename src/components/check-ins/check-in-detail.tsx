@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   Send,
   Save,
-  CheckCircle2,
   TrendingUp,
   TrendingDown,
   Minus,
-  Camera,
   Dumbbell,
   Apple,
   Moon,
@@ -19,8 +17,6 @@ import {
   MessageSquare,
   Trophy,
   AlertTriangle,
-  Pin,
-  StickyNote,
   Target,
   Activity,
 } from "lucide-react";
@@ -131,9 +127,9 @@ export function CheckInDetail({
             <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="notes">
               Notes & Instructions
-              {coachNotes.filter((n) => n.is_pinned).length > 0 && (
+              {coachNotes.length > 0 && (
                 <Badge variant="secondary" className="ml-1.5 h-5 px-1 text-xs">
-                  <Pin className="h-2.5 w-2.5" />
+                  {coachNotes.length}
                 </Badge>
               )}
             </TabsTrigger>
